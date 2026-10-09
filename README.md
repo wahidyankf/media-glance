@@ -159,6 +159,9 @@ Closing a browser tab leaves its server available until you stop it or exit its 
 
 Open `:help media-glance.nvim` inside Neovim, or browse the [documentation index](docs/README.md).
 
+The `doc/` directory contains Vimdoc `.txt` help files that Neovim indexes for `:help`.
+The `docs/` directory contains Markdown tutorials, guides, and reference pages for GitHub or a browser.
+
 | Section                                   | Use it when                                                         |
 | ----------------------------------------- | ------------------------------------------------------------------- |
 | [Tutorials](docs/tutorials/README.md)     | You want a complete first preview.                                  |
