@@ -19,13 +19,18 @@ import (
 )
 
 type memoryListener struct {
-	done     chan struct{}
-	once     sync.Once
-	err      error
-	closeErr error
+	done       chan struct{}
+	once       sync.Once
+	err        error
+	closeErr   error
+	accepted   chan struct{}
+	acceptOnce sync.Once
 }
 
 func (l *memoryListener) Accept() (net.Conn, error) {
+	if l.accepted != nil {
+		l.acceptOnce.Do(func() { close(l.accepted) })
+	}
 	if l.err != nil {
 		return nil, l.err
 	}
@@ -211,6 +216,7 @@ func TestServeFailureAndOwnerDeath(t *testing.T) {
 			input := io.ReadCloser(io.NopCloser(strings.NewReader("")))
 			output := io.Writer(io.Discard)
 			expect := false
+			var accepted <-chan struct{}
 			switch mode {
 			case "input-error":
 				input = &readStream{Reader: bytes.NewReader(nil), errorRead: errBoundary}
@@ -227,8 +233,20 @@ func TestServeFailureAndOwnerDeath(t *testing.T) {
 				output = errorWriter{}
 				expect = true
 			case "serve-error":
+				// Keep the owner alive until Accept actually returns its error.
+				// Immediate EOF could otherwise close http.Server before Serve
+				// starts, correctly producing ErrServerClosed without any Accept.
+				reader, writer := io.Pipe()
+				defer func() {
+					if e := writer.Close(); e != nil {
+						t.Error(e)
+					}
+				}()
+				input = reader
+				attempted := make(chan struct{})
+				accepted = attempted
 				host.listen = func(string, string) (net.Listener, error) {
-					return &memoryListener{done: make(chan struct{}), err: errBoundary}, nil
+					return &memoryListener{done: make(chan struct{}), err: errBoundary, accepted: attempted}, nil
 				}
 				expect = true
 			case "owner-death":
@@ -263,6 +281,16 @@ func TestServeFailureAndOwnerDeath(t *testing.T) {
 			e := serve(context.Background(), "/workspace", "/state", "", 1, input, output)
 			if expect != (e != nil) {
 				t.Fatalf("%s: %v", mode, e)
+			}
+			if mode == "serve-error" {
+				select {
+				case <-accepted:
+				default:
+					t.Fatal("listener never attempted Accept")
+				}
+				if !errors.Is(e, errBoundary) {
+					t.Fatalf("Accept error was not returned: %v", e)
+				}
 			}
 		})
 	}
