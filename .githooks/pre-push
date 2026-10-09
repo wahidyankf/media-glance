@@ -1,0 +1,7 @@
+#!/usr/bin/env bash
+set -euo pipefail
+# Run fresh unit coverage and fast validation before Git transmits objects.
+repository_root="$(git rev-parse --show-toplevel)"
+cd "$repository_root"
+npm run check:unit
+npm run check:fast

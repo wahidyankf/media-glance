@@ -7,3 +7,7 @@
 /playwright-report/
 /luacov.stats.out
 /luacov.report.out
+
+/.coverage/
+/.deps/
+/web/vendor/

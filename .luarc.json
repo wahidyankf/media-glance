@@ -1,0 +1,22 @@
+{
+  "runtime.version": "LuaJIT",
+  "workspace.library": ["${env:VIMRUNTIME}/lua"],
+  "workspace.checkThirdParty": false,
+  "workspace.ignoreDir": [
+    ".deps",
+    "node_modules",
+    "build",
+    ".coverage",
+    "test"
+  ],
+  "diagnostics.globals": ["vim"],
+  "diagnostics.severity": {
+    "undefined-global": "Error",
+    "undefined-field": "Error"
+  },
+  "diagnostics.disable": ["weakcheck-nil", "weakcheck-union"],
+  "diagnostics.groupSeverity": {
+    "type-check": "Error",
+    "strict": "Error"
+  }
+}
