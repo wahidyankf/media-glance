@@ -20,8 +20,8 @@ export function validateFixture(info, fixture) {
   }
 }
 
-export function mediaFitReady(requireFit = false) {
-  return (
+export function mediaFitReady({ requireFit = false, snapshot = false } = {}) {
+  const ready =
     document.querySelectorAll(".media-viewer").length === 3 &&
     [...document.querySelectorAll("img")].every((image) => {
       const wrapper = image.closest(".media-viewer");
@@ -50,8 +50,46 @@ export function mediaFitReady(requireFit = false) {
         image.style.width === fittedStyle.width &&
         image.style.height === fittedStyle.height
       );
-    })
+    });
+  if (!ready || !snapshot) return ready;
+
+  const selected = document.querySelector('[aria-current="page"]');
+  const nav = document.querySelector("nav");
+  const item = selected.getBoundingClientRect();
+  const bounds = nav.getBoundingClientRect();
+  return {
+    selected: selected.textContent,
+    visible: item.top >= bounds.top && item.bottom <= bounds.bottom,
+    sidebarScroll: nav.scrollTop,
+    panelScroll: document.querySelector("#panel").scrollTop,
+    font: getComputedStyle(document.querySelector("article")).fontSize,
+    maxWidth: getComputedStyle(document.querySelector(".document")).maxWidth,
+    declaredWidth: [...document.styleSheets]
+      .flatMap((sheet) => [...sheet.cssRules])
+      .find((rule) => rule.selectorText === ".document").style.maxWidth,
+    imageWidth: document.querySelector("img").getBoundingClientRect().width,
+    imageStyle: document.querySelector("img").style.width,
+    imageFit: document
+      .querySelector("img")
+      .closest(".media-viewer")
+      .querySelector("output").textContent,
+    diagramWidth: document.querySelector(".mermaid svg").getBoundingClientRect()
+      .width,
+  };
+}
+
+export async function captureMediaSnapshot(page) {
+  // Capture in the readiness poll: SSE can replace fitted media before a separate read.
+  const snapshot = await page.waitForFunction(
+    mediaFitReady,
+    { requireFit: true, snapshot: true },
+    { timeout: 10000 },
   );
+  try {
+    return await snapshot.jsonValue();
+  } finally {
+    await snapshot.dispose();
+  }
 }
 
 export async function requireNativeMathML(page) {
@@ -94,38 +132,15 @@ export async function mediaViewerBrowserSpec(page) {
   };
   const ready = async (requireFit = false) => {
     await button("Zoom in Mermaid diagram").waitFor();
-    await test.waitForFunction(mediaFitReady, requireFit, { timeout: 10000 });
+    await test.waitForFunction(
+      mediaFitReady,
+      { requireFit },
+      { timeout: 10000 },
+    );
   };
   try {
     await test.goto(info.viewerUrl);
-    await ready(true);
-    const initial = await test.evaluate(() => {
-      const selected = document.querySelector('[aria-current="page"]');
-      const nav = document.querySelector("nav");
-      const item = selected.getBoundingClientRect();
-      const bounds = nav.getBoundingClientRect();
-      return {
-        selected: selected.textContent,
-        visible: item.top >= bounds.top && item.bottom <= bounds.bottom,
-        sidebarScroll: nav.scrollTop,
-        panelScroll: document.querySelector("#panel").scrollTop,
-        font: getComputedStyle(document.querySelector("article")).fontSize,
-        maxWidth: getComputedStyle(document.querySelector(".document"))
-          .maxWidth,
-        declaredWidth: [...document.styleSheets]
-          .flatMap((sheet) => [...sheet.cssRules])
-          .find((rule) => rule.selectorText === ".document").style.maxWidth,
-        imageWidth: document.querySelector("img").getBoundingClientRect().width,
-        imageStyle: document.querySelector("img").style.width,
-        imageFit: document
-          .querySelector("img")
-          .closest(".media-viewer")
-          .querySelector("output").textContent,
-        diagramWidth: document
-          .querySelector(".mermaid svg")
-          .getBoundingClientRect().width,
-      };
-    });
+    const initial = await captureMediaSnapshot(test);
     assert(
       initial.selected === "current.md" &&
         initial.visible &&
