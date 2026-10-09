@@ -20,6 +20,40 @@ export function validateFixture(info, fixture) {
   }
 }
 
+export function mediaFitReady(requireFit = false) {
+  return (
+    document.querySelectorAll(".media-viewer").length === 3 &&
+    [...document.querySelectorAll("img")].every((image) => {
+      const wrapper = image.closest(".media-viewer");
+      const percent = wrapper?.querySelector("output").textContent;
+      const width = Number.parseFloat(image.style.width);
+      const height = Number.parseFloat(image.style.height);
+      if (
+        !image.complete ||
+        !image.naturalWidth ||
+        !percent ||
+        !(width > 0 && height > 0)
+      )
+        return false;
+      if (!requireFit) return true;
+      const viewport = wrapper.querySelector(".media-viewport");
+      const fit = Math.min(
+        1,
+        viewport.clientWidth / image.naturalWidth,
+        Math.max(120, window.innerHeight * 0.7) / image.naturalHeight,
+      );
+      const fittedStyle = document.createElement("div").style;
+      fittedStyle.width = `${image.naturalWidth * fit}px`;
+      fittedStyle.height = `${image.naturalHeight * fit}px`;
+      return (
+        percent === "100%" &&
+        image.style.width === fittedStyle.width &&
+        image.style.height === fittedStyle.height
+      );
+    })
+  );
+}
+
 export async function mediaViewerBrowserSpec(page) {
   // The supplied tab must point at our synthetic fixture controller, never a user's workspace.
   const fixture = new URL(page.url());
@@ -51,19 +85,13 @@ export async function mediaViewerBrowserSpec(page) {
     );
     assert(response.ok(), `Fixture mutation failed: ${operation}`);
   };
-  const ready = async () => {
+  const ready = async (requireFit = false) => {
     await button("Zoom in Mermaid diagram").waitFor();
-    await test.waitForFunction(
-      () =>
-        document.querySelectorAll(".media-viewer").length === 3 &&
-        [...document.querySelectorAll("img")].every(
-          (image) => image.complete && image.naturalWidth > 0,
-        ),
-    );
+    await test.waitForFunction(mediaFitReady, requireFit, { timeout: 10000 });
   };
   try {
     await test.goto(info.viewerUrl);
-    await ready();
+    await ready(true);
     const initial = await test.evaluate(() => {
       const selected = document.querySelector('[aria-current="page"]');
       const nav = document.querySelector("nav");
@@ -81,6 +109,11 @@ export async function mediaViewerBrowserSpec(page) {
           .flatMap((sheet) => [...sheet.cssRules])
           .find((rule) => rule.selectorText === ".document").style.maxWidth,
         imageWidth: document.querySelector("img").getBoundingClientRect().width,
+        imageStyle: document.querySelector("img").style.width,
+        imageFit: document
+          .querySelector("img")
+          .closest(".media-viewer")
+          .querySelector("output").textContent,
         diagramWidth: document
           .querySelector(".mermaid svg")
           .getBoundingClientRect().width,
@@ -112,6 +145,7 @@ export async function mediaViewerBrowserSpec(page) {
         maximumTop: viewport.scrollHeight - viewport.clientHeight,
         font: getComputedStyle(document.querySelector("article")).fontSize,
         imageWidth: document.querySelector("img").getBoundingClientRect().width,
+        imageStyle: document.querySelector("img").style.width,
       };
     });
     assert(
@@ -123,7 +157,7 @@ export async function mediaViewerBrowserSpec(page) {
     );
     assert(
       zoom.font === initial.font && zoom.imageWidth === initial.imageWidth,
-      "Diagram zoom changed other content",
+      `Diagram zoom changed other content: ${JSON.stringify({ initial, zoom })}`,
     );
     await button("Zoom out Mermaid diagram").click();
     assert(
