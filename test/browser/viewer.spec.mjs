@@ -1,6 +1,7 @@
 import { test, expect } from "@playwright/test";
 import { resolve } from "node:path";
 import {
+  captureMediaSnapshot,
   mediaFitReady,
   mediaViewerBrowserSpec,
   requireNativeMathML,
@@ -122,10 +123,13 @@ test("downloaded images are not ready until their fit callbacks have applied", a
     ).json();
     await page.addInitScript(() => {
       const queued = [];
-      globalThis.releaseImageFits = () => {
-        globalThis.releaseImageFits = undefined;
-        for (const callback of queued.splice(0)) callback();
+      globalThis.holdImageFits = () => {
+        globalThis.releaseImageFits = () => {
+          globalThis.releaseImageFits = undefined;
+          for (const callback of queued.splice(0)) callback();
+        };
       };
+      globalThis.holdImageFits();
       const Observer = globalThis.ResizeObserver;
       globalThis.ResizeObserver = class extends Observer {
         constructor(callback) {
@@ -175,17 +179,60 @@ test("downloaded images are not ready until their fit callbacks have applied", a
         fit: image.closest(".media-viewer").querySelector("output").textContent,
       }));
     expect(
-      await page.evaluate(mediaFitReady, true),
+      await page.evaluate(mediaFitReady, { requireFit: true }),
       JSON.stringify(pending),
     ).toBe(false);
     expect(pending.style).toBe("");
     expect(pending.fit).toBe("");
     await page.evaluate(() => globalThis.releaseImageFits());
-    await page.waitForFunction(mediaFitReady, true, { timeout: 10000 });
-    const before = await page
-      .locator("img")
-      .first()
-      .evaluate((image) => image.getBoundingClientRect().width);
+    await page.waitForFunction(
+      mediaFitReady,
+      { requireFit: true },
+      { timeout: 10000 },
+    );
+    const waitForFunction = page.waitForFunction.bind(page);
+    let refreshed = false;
+    // Force a real redraw after polling returns, while the replacement images await fitting.
+    page.waitForFunction = async (...args) => {
+      const value = await waitForFunction(...args);
+      if (args[0] === mediaFitReady && !refreshed) {
+        refreshed = true;
+        await page.evaluate(() => globalThis.holdImageFits());
+        const changed = await page.request.post(
+          new URL("edit-prose", ready.fixtureUrl).href,
+        );
+        expect(changed.ok()).toBe(true);
+        await page
+          .getByText("External sidebar-refresh marker.", { exact: true })
+          .waitFor();
+        await waitForFunction(() => {
+          const images = [...globalThis.document.querySelectorAll("img")];
+          return (
+            globalThis.document.querySelector(".mermaid svg") &&
+            images.length === 2 &&
+            images.every((image) => image.complete && image.naturalWidth > 0) &&
+            images[0].style.width === ""
+          );
+        });
+      }
+      return value;
+    };
+    let baseline;
+    try {
+      baseline = await captureMediaSnapshot(page);
+    } finally {
+      page.waitForFunction = waitForFunction;
+    }
+    expect(refreshed).toBe(true);
+    expect(baseline.imageFit).toBe("100%");
+    expect(baseline.imageStyle).not.toBe("");
+    await page.evaluate(() => globalThis.releaseImageFits());
+    await page.waitForFunction(
+      mediaFitReady,
+      { requireFit: true },
+      { timeout: 10000 },
+    );
+    const before = baseline.imageWidth;
     for (let index = 0; index < 5; index++)
       await page
         .getByRole("button", { name: "Zoom in Mermaid diagram", exact: true })

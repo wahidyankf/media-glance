@@ -1,15 +1,21 @@
 # Contributing to media-glance.nvim
 
-Work on a branch and submit a pull request. Changes must pass the required CI before merging to `main`.
+Work on a branch in a worktree at `{repository}/worktrees/<task>` and submit a pull request. Changes must pass
+the required CI before merging to `main`. After merge, remove only your clean task worktree and task branch.
 Keep personal configuration and workspace documents outside the repository.
+
+Keep user instructions in the [documentation tree](docs/README.md) and editor help in `doc/media-glance.txt`
+consistent with the affected implementation. Root README examples should take a new user from installation to a
+working preview; contributor automation belongs here or in the [workflow guide](.github/workflows/README.md).
 
 ## Tools and setup
 
 Use Node.js 24.16.0, npm 11.11.0, Go 1.26.8, golangci-lint 2.11.3, Neovim 0.10 or later, ShellCheck, and shfmt.
+These are contributor tools; users running a release binary do not need Node.js or Go.
 The Node versions are recorded in `package.json`; JavaScript dependencies are pinned in `package-lock.json`.
 The Go commands select the recorded toolchain. CI pins its Neovim and instrument downloads.
 
-```sh
+```bash
 npm ci
 npm run tools
 npm run setup
@@ -32,7 +38,7 @@ result in `build/media-glance`. Source builds need development tools; running th
 
 ## Checks
 
-```sh
+```bash
 npm run test:js
 npm run check:unit
 npm run check:fast
@@ -57,7 +63,7 @@ Fixtures must not modify an existing workspace or stop a server owned by another
 
 ## Releases
 
-```sh
+```bash
 npm run release:build
 ```
 
@@ -65,3 +71,8 @@ This builds four `CGO_ENABLED=0` executables in `dist`, plus `checksums.txt` and
 macOS and Linux, each on arm64 and amd64. A release must pass the complete suite and an offline smoke test of the
 binary copied away from the checkout. Keep the plugin tag and binary version in sync. Preserve dependency licenses
 and review the expected Mermaid math chunk before updating renderer pins.
+
+Tag CI waits for the complete matrix before uploading the `release-binaries` artifact; it does not publish a
+GitHub release automatically. A maintainer verifies the artifact checksums and expected platforms before attaching
+executables, checksums, the MIT license, and third-party notices to the matching release. The release binary and
+Lua installer must agree on version and protocol.

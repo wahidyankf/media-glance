@@ -1,90 +1,154 @@
 # media-glance.nvim
 
-Preview your workspace in a browser from Neovim. Browse files in a sidebar, render Markdown and Mermaid diagrams,
-open images and other media, and see updates made by your editor or another process.
+**Read your workspace in a browser without leaving your Neovim workflow.** Preview Markdown, Mermaid diagrams,
+images, and other media beside a file explorer, with live updates from saved changes made by any editor or agent.
 
-The viewer uses one local Go server per workspace session. Browser assets are bundled, so previews work offline
-once the binary is installed. Opening a preview requires no Node.js, Go toolchain, or development scheduler.
+media-glance.nvim pairs a Lua plugin with a local Go server. Install its prebuilt binary once; the viewer bundles
+its browser interface and Mermaid renderer. Opening a preview works offline for local files and needs no Node.js
+or Go toolchain.
+
+## Demo
+
+![Markdown preview, Mermaid zoom and expanded view, live external update, and a local image](docs/assets/demo.gif)
+
+The demo opens the selected document beside its explorer, enlarges the Mermaid diagram, and closes its expanded
+view. Another process saves the document; the preview updates automatically. A local SVG then opens in the viewer.
+All sample content is invented. See the [recording details](docs/assets/README.md) or follow the
+[first-preview tutorial](docs/tutorials/preview-your-first-document.md) at your own pace.
+
+## Highlights
+
+- **Start with the file you are editing.** Open your current saved file and reveal it in the explorer sidebar.
+- **Read rich documents.** Render Markdown tables, task lists, local images, links, and Mermaid diagrams.
+- **Enlarge the media, keep the text size.** Zoom each image or diagram, fit it, or open an expanded view.
+- **See changes from outside Neovim.** Saved and atomic file replacements refresh the preview.
+- **Keep sessions independent.** Each Neovim session owns its server; exiting the editor stops it. Pick a running
+  server to reopen it or stop it explicitly.
 
 ## Install
 
-Requires Neovim 0.10 or later on macOS or Linux. Releases provide arm64 and amd64 binaries.
+You need **Neovim 0.10 or later**, a browser, and **macOS or Linux on arm64 or amd64**. Explicit binary installation
+also needs `curl` and either `shasum` or `sha256sum`. Windows is not supported.
 
-With lazy.nvim:
+Add this [lazy.nvim](https://lazy.folke.io/spec) spec to your plugin configuration:
 
 ```lua
 {
   "wahidyankf/media-glance",
   tag = "v0.1.0",
-  config = function()
-    require("media-glance").setup()
-  end,
+  lazy = false,
+  main = "media-glance",
+  opts = {},
 }
 ```
 
-Run `:MediaGlanceInstall` once to install the binary matching the plugin release. Installation verifies its checksum
-and version before publishing it to the Neovim cache. Open and list commands never install or build automatically.
+Install the plugin with your plugin manager, restart Neovim, then run:
 
-For a local source build, use the contributor instructions and pass its absolute binary path through `setup`.
-Windows is not supported in this release.
+```vim
+:MediaGlanceInstall
+```
 
-## Use
+The installer downloads the binary for your platform from the matching release, verifies its SHA-256 checksum
+and version/protocol, and publishes it atomically in Neovim's cache. Installation is explicit: opening or listing
+previews never downloads or builds anything. See [installation and upgrades](docs/how-to/install-and-upgrade.md)
+for source builds and recovery from an interrupted installation.
 
-- `:MediaGlanceOpen`: start or reuse your session's viewer and open the currently focused, saved workspace file.
-- `:MediaGlanceList`: choose a running viewer; Enter opens it focused on your current file when that file is in its root.
-- `:MediaGlanceClose`: choose a running viewer; Enter stops the selected server.
+## First preview
 
-The workspace root is Neovim's global working directory when the server starts. Its root remains fixed for that
-server. Files outside that root, unnamed buffers, and directories fall back to a workspace README or the explorer.
-The owning Neovim session stops its server on exit. You can also find and stop forgotten servers through the list.
+Open Neovim from the directory you want to browse, open a saved file inside it, and run:
 
-The plugin does not set mappings. For example:
+```vim
+:MediaGlanceOpen
+```
+
+The browser opens that file with the workspace explorer on the left. Save a change to the file, or let another
+process update it: the preview refreshes while preserving document scroll and relevant media zoom.
+
+| Command               | Action                                                                 |
+| --------------------- | ---------------------------------------------------------------------- |
+| `:MediaGlanceOpen`    | Start or reuse this session's server and open the current saved file.  |
+| `:MediaGlanceList`    | Pick a server and open your current file when it belongs to that root. |
+| `:MediaGlanceClose`   | Pick a running server and stop it.                                     |
+| `:MediaGlanceInstall` | Download and verify the binary matching this plugin version.           |
+
+With common picker providers, Enter confirms and Escape cancels. Server pickers use `vim.ui.select`; an installed
+UI provider can supply the picker. The plugin creates no default keybindings. For example, add these mappings
+after plugin setup:
 
 ```lua
 local media = require("media-glance")
-vim.keymap.set("n", "<leader>mo", media.open, { desc = "Open workspace media" })
-vim.keymap.set("n", "<leader>ml", media.list, { desc = "List workspace media" })
-vim.keymap.set("n", "<leader>mx", media.close, { desc = "Close workspace media" })
+vim.keymap.set("n", "<BS>wvmo", media.open, { desc = "Open workspace media" })
+vim.keymap.set("n", "<BS>wvml", media.list, { desc = "List workspace media" })
+vim.keymap.set("n", "<BS>wvmx", media.close, { desc = "Close workspace media" })
 ```
 
-Each server binds only to `127.0.0.1`, choosing the first available port in **57300–57399** by actually binding it.
-Multiple sessions can run independently; occupied ports are skipped and exhaustion produces an error.
+[Preview your first document](docs/tutorials/preview-your-first-document.md) walks through diagrams, external
+updates, zoom, and cleanup in a temporary workspace.
 
-## Preview behavior
+## Workspace and media behavior
 
-Markdown supports tables, code blocks, images, local links, Mermaid, and mathematical labels. Raw document HTML is
-escaped. Ordinary images, SVG images, PDF, audio, video, and small text files can be previewed; other files can be
-downloaded. Preview text is limited to 2 MiB.
+By default, the workspace is Neovim's **global working directory**, captured when the server starts. Changing
+Neovim's directory later does not move an existing server. An unnamed buffer, missing file, or file outside that
+root falls back to the root's `README.md`, then the explorer. List selection captures your file before the picker
+opens, so the picker buffer does not replace your intended preview.
 
-Images and Mermaid diagrams have independent **−**, **+**, **Fit**, and **Expand** controls. Zoom ranges from 25% to
-800% relative to fit; scrolling explores enlarged media. Escape closes the expanded view and returns keyboard focus.
-Document text keeps its size, while the content column allows up to 123ch.
+Images and Mermaid diagrams have independent **−**, **+**, **Fit**, and **Expand** controls. Zoom ranges from
+25% to 800% relative to fit; scroll inside enlarged media to explore it. Escape closes the expanded view and
+returns focus. The document column allows up to 123ch without changing text size.
 
-Filesystem watchers refresh saved changes, including external and atomic writes. Updates preserve document scroll
-and existing media zoom. The sidebar reveals your focused file on opening; ordinary live updates preserve its scroll.
-The tree loads folders as needed and skips `.git`, `node_modules`, `.cache`, and nested `worktrees` directories.
+The sidebar loads folders as you expand them. Live updates watch the selected file, referenced local assets, and
+visible directories rather than recursively indexing the entire workspace. The explorer skips `.git`,
+`node_modules`, `.cache`, and `worktrees`. See [supported media and limits](docs/reference/preview-behavior.md)
+for file types, browser codec requirements, and watcher limits.
 
-## Configuration and Lua API
+## Configuration
 
 ```lua
 require("media-glance").setup({
-  -- root = function() return vim.fn.getcwd(-1, -1) end,
+  root = function() return vim.fn.getcwd(-1, -1) end,
+  state_dir = vim.fn.stdpath("state") .. "/media-glance",
+  cache_dir = vim.fn.stdpath("cache") .. "/media-glance",
   -- binary = "/absolute/path/to/media-glance",
-  -- state_dir = "/absolute/path/to/registry",
 })
 ```
 
-The module exposes `setup`, `open`, `list`, `close`, `shutdown`, and `install`.
-Use `shutdown()` to stop only the server owned by the current session. Server selection uses `vim.ui.select`;
-Telescope is optional.
+The defaults work without configuration. Use `root` to integrate your own workspace detection and `binary` for an
+explicit source build. The Lua API exposes `setup`, `open`, `list`, `close`, `shutdown`, and `install`.
+[Configuration and API reference](docs/reference/configuration-and-api.md) covers every option and command.
 
-## Development and security
+## Local access and lifecycle
 
-See [CONTRIBUTING.md](CONTRIBUTING.md) for build, coverage, hooks, and test commands. All three production runtimes
-have separate 99% unit coverage gates. Integration tests exercise server lifecycle and resource cleanup; browser
-end-to-end tests use synthetic files and stop their own servers.
+Servers bind only to `127.0.0.1`, selecting an available port in **57300–57399** by binding it. Occupied ports are
+skipped. Multiple editor sessions can serve different workspaces independently.
 
-The server authenticates its routes, validates host/origin headers, and confines files and symlinks to the workspace.
-Only its intended browser asset graph is exposed. Do not share viewer URLs: they contain the session's access token.
+The server authenticates routes, validates host/origin headers, and confines file and symlink access to the workspace.
+Raw Markdown HTML is escaped, and document scripts do not run. **Keep viewer URLs private:** they contain a session
+access token. Anyone with a token and local access can read files in that workspace; the explorer's hidden folders
+are not access restrictions. Remote images in documents can still contact their external hosts.
 
-[MIT license](LICENSE). Bundled dependency notices are listed in [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
+Closing a browser tab leaves its server available until you stop it or exit its owning Neovim session.
+[How sessions and live updates work](docs/explanation/sessions-and-live-updates.md) explains ownership and cleanup.
+
+## Documentation and support
+
+Open `:help media-glance.nvim` inside Neovim, or browse the [documentation index](docs/README.md).
+
+| Section                                   | Use it when                                                         |
+| ----------------------------------------- | ------------------------------------------------------------------- |
+| [Tutorials](docs/tutorials/README.md)     | You want a complete first preview.                                  |
+| [How-to guides](docs/how-to/README.md)    | You need installation, workspace control, or troubleshooting steps. |
+| [Reference](docs/reference/README.md)     | You need an exact option, command, file type, or limit.             |
+| [Explanation](docs/explanation/README.md) | You want to understand sessions, watching, and access boundaries.   |
+
+For a problem, start with [troubleshooting](docs/how-to/troubleshoot.md). Report reproducible issues through
+[GitHub Issues](https://github.com/wahidyankf/media-glance/issues); include your platform, Neovim version, plugin tag,
+and the error message. Remove viewer tokens and private workspace content from reports.
+
+## Contributing and license
+
+[CONTRIBUTING.md](CONTRIBUTING.md) covers native development tools, hooks, complete checks, and releases.
+Go, Lua, and JavaScript each have an independent **99% unit coverage gate**, with separate integration, Neovim,
+and browser tests. Changes reach `main` through pull requests with required CI.
+
+media-glance.nvim is available under the [MIT license](LICENSE). Bundled dependency notices are in
+[THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).

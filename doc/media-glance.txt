@@ -7,6 +7,7 @@ CONTENTS                                             *media-glance.nvim*
 2. Setup                                             |media-glance-setup|
 3. Commands and API                                  |media-glance-api|
 4. Behavior                                          |media-glance-behavior|
+5. Limits and troubleshooting                        |media-glance-limits|
 
 ==============================================================================
 1. REQUIREMENTS                                      *media-glance-requirements*
@@ -45,7 +46,9 @@ Options:
   })
 <
 The default binary is cache_dir/v0.1.0/media-glance. Source builds must use the
-matching release protocol. Configure options before starting a server.
+matching release protocol. Installation fills cache_dir even when binary has an
+override. A setup call replaces earlier options rather than merging them.
+Configure options before starting a server.
 
 ==============================================================================
 3. COMMANDS AND API                                  *media-glance-api*
@@ -61,6 +64,11 @@ shutdown() stops only this session's owned server through its ownership pipe.
 setup(options) registers commands and VimLeavePre cleanup without starting,
 building, or downloading a server.
 
+Open, list, close, and shutdown return no result and report failures through
+notifications. They use asynchronous jobs or callbacks; shutdown initiates cleanup
+without waiting for exit. install() synchronously waits for its download and
+verification steps, so Neovim can remain busy until installation finishes.
+
 The picker uses vim.ui.select, so an installed UI provider may render the list.
 Telescope's media picker maps Escape to cancel in insert and normal modes.
 
@@ -73,7 +81,9 @@ The server root stays fixed after startup even if Neovim changes directories.
 
 Open and list selection use the current saved file inside the selected server's
 root. The list captures the file before opening its picker. Files outside the
-root and unsaved buffers fall back to README.md, then the file explorer.
+root, unnamed buffers, directories, and unavailable files fall back to root
+README.md, then the file explorer. A named file with unsaved changes still opens
+its saved disk copy; save first to include those changes.
 
 The browser shows an explorer sidebar and previews Markdown, images, PDFs,
 audio, video, and ordinary text. Markdown renders local images, Mermaid diagrams,
@@ -90,6 +100,42 @@ session's server does not transfer ownership. Closing a chosen server uses its
 validated instance identity rather than killing an arbitrary process ID.
 
 The viewer binds only to loopback, authenticates token routes, and confines file
-access to canonical workspace paths. Document scripts and raw HTML do not run.
+access to canonical workspace paths. Raw Markdown HTML is escaped and document
+scripts do not run. Keep viewer URLs and registry files private: their tokens
+authorize access to workspace files. Remote images can contact external hosts.
+
+==============================================================================
+5. LIMITS AND TROUBLESHOOTING                         *media-glance-limits*
+
+Markdown (.md and .markdown) and ordinary UTF-8 text previews are limited to
+2 MiB. Larger text, invalid UTF-8, and binary files use a download view. Image,
+PDF, audio, and video extensions have separate preview handling and rely on
+browser format/codec support. Images and Mermaid support independent zoom;
+audio, video, and PDF use browser controls. Ordinary Markdown has no standalone
+math renderer; supported math labels belong to Mermaid syntax.
+
+Local links and images resolve relative to their Markdown document. Leading
+slashes resolve from the workspace root. Traversal and outside-root symlinks
+are refused. Explorer omissions (.git, node_modules, .cache, worktrees) affect
+navigation; they do not restrict authenticated access to known file paths.
+
+Live updates watch the selected file, local referenced assets, and expanded
+folders with their ancestors, bounded to 256 directory paths per browser stream.
+Watching does not recursively cover every workspace file. At that limit, reduce
+expanded folders or reload. Saved external edits and atomic replacements refresh
+the browser. Closing the browser leaves the server running until its owner exits
+or you stop it. Discovery requires a shared state_dir.
+
+For errors, inspect :messages and the browser status. If the binary is missing,
+run :MediaGlanceInstall or check your binary override. Confirm the root exists,
+state/cache paths are writable, and ports 57300-57399 are available. Readiness
+times out after 30 seconds. List and stop subprocesses time out after 10 seconds.
+Each installer download has a 10-second connection timeout and 60-second limit.
+
+Full guides, reference, and a first-preview tutorial:
+https://github.com/wahidyankf/media-glance/blob/main/docs/README.md
+
+Report reproducible issues with platform, Neovim version, plugin tag, error, and
+synthetic steps. Remove URLs, tokens, credentials, and private workspace content.
 
  vim:tw=78:ts=8:noet:ft=help:norl:
