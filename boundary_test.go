@@ -207,6 +207,18 @@ func TestHTTPRoutingAndPreview(t *testing.T) {
 		t.Fatal(w.Code)
 	}
 }
+func TestBundledFreeFontAssets(t *testing.T) {
+	v := unitViewer(t)
+	for _, name := range []string{"SourceSerif4-Regular.ttf.woff2", "SourceSerif4-Bold.ttf.woff2", "SourceSerif4-It.ttf.woff2", "SourceSerif4-BoldIt.ttf.woff2", "SourceSans3VF-Upright.otf.woff2", "SourceCodePro-Regular.ttf.woff2", "STIXTwoMath-Regular.woff2"} {
+		w := unitResponse(t, v, "GET", "fonts/"+name, 200)
+		if w.Header().Get("Content-Type") != "font/woff2" || !bytes.HasPrefix(w.Body.Bytes(), []byte("wOF2")) {
+			t.Fatal("invalid bundled font", name)
+		}
+	}
+	for _, name := range []string{"fonts/README.md", "fonts/SourceSerif4-LICENSE.md", "fonts/unknown.woff2"} {
+		unitResponse(t, v, "GET", name, 404)
+	}
+}
 func TestBundledFavicon(t *testing.T) {
 	v := unitViewer(t)
 	w := unitResponse(t, v, "GET", "favicon.svg", 200)

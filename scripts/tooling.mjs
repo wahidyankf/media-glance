@@ -14,7 +14,7 @@ import { join, resolve, relative } from "node:path";
 import { createHash } from "node:crypto";
 import { spawnSync } from "node:child_process";
 
-export const version = "v0.1.2";
+export const version = "v0.1.3";
 export const targets = [
   "darwin_arm64",
   "darwin_amd64",
@@ -89,6 +89,22 @@ export function vendor(
       );
   }
   io.writeFileSync(join(output, "chunks/mermaid.esm.min", chunk), math);
+  // Mermaid 11.16.1 ER rows discard explicit class/node fill on odd stripes.
+  // Only an authored fill bypasses the normal theme’s alternating backgrounds.
+  const erChunk = "chunk-NLANEA3F.mjs";
+  const er = io.readFileSync(
+    join(source, "chunks/mermaid.esm.min", erChunk),
+    "utf8",
+  );
+  const expression = "fill:at?o:f,stroke:i";
+  if (er.split(expression).length !== 2)
+    throw new Error(
+      "ER renderer compatibility input changed; inspect upstream before updating",
+    );
+  io.writeFileSync(
+    join(output, "chunks/mermaid.esm.min", erChunk),
+    er.replace(expression, "fill:/(^|;)fill:/.test(g)?O.fill:at?o:f,stroke:i"),
+  );
 }
 export function build(
   root,

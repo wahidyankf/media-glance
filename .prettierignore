@@ -12,3 +12,9 @@ test/lua/
 
 # Dependency license texts are preserved verbatim.
 THIRD_PARTY_NOTICES.md
+
+# Bundled font copyright/license payloads retain their exact upstream bytes.
+web/fonts/SourceSerif4-LICENSE.md
+web/fonts/SourceSans3-LICENSE.md
+web/fonts/SourceCodePro-LICENSE.md
+web/fonts/STIXTwoMath-OFL.txt

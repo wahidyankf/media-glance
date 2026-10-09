@@ -136,6 +136,37 @@ async function run(binary) {
       join(nested, "links.md"),
       "# Link behavior\n\n[External guide](https://example.test/guide)\n\n<https://example.test/auto>\n\n[![Linked image](large.svg)](https://example.test/image)\n\n[Local document](second.md)\n\n[Email](mailto:reader@example.test)\n",
     );
+    const entity = (name, fields = 3) =>
+      name +
+      " {\n" +
+      Array.from({ length: fields }, (_, i) => " string field_" + i).join(
+        "\n",
+      ) +
+      "\n}";
+    const erSamples = [
+      "erDiagram\n" +
+        entity("DEFAULT_RECORD") +
+        "\nclassDef default fill:#0173B2,stroke:#000000,color:#FFFFFF",
+      "erDiagram\n" +
+        entity("NAMED_RECORD:::green", 1) +
+        "\nclassDef green fill:#28643C,color:#FFFFFF",
+      "erDiagram\n" +
+        entity("DIRECT_RECORD") +
+        "\nstyle DIRECT_RECORD fill:#604080,color:#FFFFFF",
+      "erDiagram\n" + entity("PLAIN_RECORD"),
+      "erDiagram\n" +
+        entity("BORDER_RECORD:::border") +
+        "\nclassDef border stroke:#a75400",
+    ];
+    await writeFile(
+      join(nested, "er-styles.md"),
+      "# ER style examples\n\n" +
+        erSamples.map((value) => "```mermaid\n" + value + "\n```").join("\n\n"),
+    );
+    await writeFile(
+      join(nested, "copy.md"),
+      '# Code examples\n\nInline `unaffected` code.\n\n```http\nGET /notes?x=1&y=2\n\t{"label":"<safe>"}\n```\n',
+    );
     child = spawn(
       binary,
       [
@@ -192,6 +223,12 @@ async function run(binary) {
           response.end(
             "<!doctype html><title>Synthetic media viewer fixture</title><p>Owned browser regression fixture.</p>",
           );
+        } else if (request.method === "POST" && request.url === "/edit-code") {
+          await writeFile(
+            join(nested, "copy.md"),
+            '# Code examples\n\nInline `unaffected` code.\n\n```json\n{\n\t"saved": "external update"\n}\n```\n',
+          );
+          response.end("updated");
         } else if (request.method === "POST" && request.url === "/edit-image") {
           await writeFile(join(nested, "large.png"), png(187, 55, 35));
           response.end("updated");

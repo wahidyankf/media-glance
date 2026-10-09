@@ -64,7 +64,7 @@ func TestCLIValidationAndVersion(t *testing.T) {
 	fakeHost(t)
 	input := io.NopCloser(strings.NewReader(""))
 	var b bytes.Buffer
-	if e := run([]string{"version", "--json"}, input, &b); e != nil || !strings.Contains(b.String(), `"protocol":1`) || !strings.Contains(b.String(), `"version":"v0.1.2"`) {
+	if e := run([]string{"version", "--json"}, input, &b); e != nil || !strings.Contains(b.String(), `"protocol":1`) || !strings.Contains(b.String(), `"version":"v0.1.3"`) {
 		t.Fatalf("%s %v", b.String(), e)
 	}
 	for _, args := range [][]string{nil, {"version"}, {"version", "other"}, {"list", "--bad"}, {"list"}, {"list", "--state-dir", "/state", "positional"}, {"stop", "--state-dir", "/state"}, {"what", "--state-dir", "/state"}, {"serve", "--state-dir", "/state"}, {"serve", "--state-dir", "/state", "--root", "/missing", "--owner-pid", "1"}, {"serve", "--state-dir", "/state", "--root", "/workspace/z.txt", "--owner-pid", "1"}, {"serve", "--state-dir", "/state", "--root", "/workspace", "--owner-pid", "1", "--initial-file", "relative"}} {

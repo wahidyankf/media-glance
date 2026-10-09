@@ -152,7 +152,7 @@ end
 
 ---@return string|nil
 local function locate_binary()
-  local path = options.binary or vim.fs.joinpath(options.cache_dir or default_cache(), 'v0.1.2', 'media-glance')
+  local path = options.binary or vim.fs.joinpath(options.cache_dir or default_cache(), 'v0.1.3', 'media-glance')
   if vim.fn.executable(path) ~= 1 then
     notify_error 'binary is unavailable. Run :MediaGlanceInstall explicitly or configure binary.'
     return nil

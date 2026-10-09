@@ -100,6 +100,13 @@ function vendorFixture(root) {
     "old",
   );
   writeFileSync(
+    join(
+      root,
+      "node_modules/mermaid/dist/chunks/mermaid.esm.min/chunk-NLANEA3F.mjs",
+    ),
+    "fixture row expression fill:at?o:f,stroke:i",
+  );
+  writeFileSync(
     join(root, "node_modules/katex/dist/katex.mjs"),
     'var version = "0.18.3";',
   );
@@ -231,6 +238,36 @@ test("vendor stages only the selected Mermaid graph with patched exact KaTeX", (
     );
     assert.throws(() => vendor(root), /chunk changed/);
   }));
+test("ER compatibility staging preserves explicit fill and refuses missing or drifted renderer input", () =>
+  scratch((root) => {
+    vendorFixture(root);
+    const source = join(
+      root,
+      "node_modules/mermaid/dist/chunks/mermaid.esm.min/chunk-NLANEA3F.mjs",
+    );
+    const output = join(
+      root,
+      "web/vendor/chunks/mermaid.esm.min/chunk-NLANEA3F.mjs",
+    );
+    vendor(root);
+    assert.match(
+      readFileSync(output, "utf8"),
+      /fill:\/\(\^\|;\)fill:\/\.test\(g\)\?O\.fill:at\?o:f,stroke:i/,
+    );
+    assert.match(readFileSync(source, "utf8"), /fill:at\?o:f,stroke:i/);
+    for (const changed of [
+      "changed renderer",
+      "fill:at?o:f,stroke:i fill:at?o:f,stroke:i",
+    ]) {
+      writeFileSync(source, changed);
+      assert.throws(
+        () => vendor(root),
+        /ER renderer compatibility input changed/,
+      );
+    }
+    rmSync(source);
+    assert.throws(() => vendor(root), /ENOENT/);
+  }));
 test("source and release builds select targets, checksums and stop on build failures", () =>
   scratch((root) => {
     const calls = [];
@@ -248,7 +285,7 @@ test("source and release builds select targets, checksums and stop on build fail
     assert.equal(calls[1].opts.env.GOARCH, "arm64");
     const checksums = readFileSync(join(root, "dist/checksums.txt"), "utf8");
     assert.equal(checksums.trim().split("\n").length, 4);
-    assert.match(checksums, /media-glance_v0\.1\.2_linux_arm64/);
+    assert.match(checksums, /media-glance_v0\.1\.3_linux_arm64/);
     assert.throws(() => release(root, () => ({ status: 3 })), /exited 3/);
   }));
 test("gate commands run in order with fresh reports and propagate format or command failures", () =>
