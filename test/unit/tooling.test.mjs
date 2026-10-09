@@ -286,6 +286,15 @@ test("gate commands run in order with fresh reports and propagate format or comm
     }
     assert.ok(calls.some((call) => call.command === "git"));
     assert.ok(calls.some((call) => call.args.includes("-race")));
+    const goTests = calls.filter(
+      (call) => call.command === "go" && call.args[0] === "test",
+    );
+    assert.ok(goTests.length >= 4);
+    for (const call of goTests)
+      assert.ok(
+        call.args.includes("-count=1"),
+        `Go tests must bypass cached results: ${call.args.join(" ")}`,
+      );
     assert.ok(calls.some((call) => call.args.includes("test/lua/unit.lua")));
     assert.throws(
       () =>

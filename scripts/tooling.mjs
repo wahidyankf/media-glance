@@ -332,6 +332,7 @@ export function dispatch(
       "go",
       [
         "test",
+        "-count=1",
         "-p=2",
         "-parallel=2",
         "-coverpkg=./...",
@@ -359,9 +360,20 @@ export function dispatch(
     return checkCoverage(root, start);
   }
   if (command === "integration") {
-    exec("go", ["test", "-parallel=2", "-race", "-tags=integration", "./..."], {
-      env: { ...process.env, GOTOOLCHAIN: "go1.26.8" },
-    });
+    exec(
+      "go",
+      [
+        "test",
+        "-count=1",
+        "-parallel=2",
+        "-race",
+        "-tags=integration",
+        "./...",
+      ],
+      {
+        env: { ...process.env, GOTOOLCHAIN: "go1.26.8" },
+      },
+    );
     exec(process.execPath, [
       "--test",
       "--test-concurrency=2",
