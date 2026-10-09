@@ -54,6 +54,13 @@ export function mediaFitReady(requireFit = false) {
   );
 }
 
+export async function requireNativeMathML(page) {
+  await page.locator(".mermaid math").first().waitFor({
+    state: "attached",
+    timeout: 10000,
+  });
+}
+
 export async function mediaViewerBrowserSpec(page) {
   // The supplied tab must point at our synthetic fixture controller, never a user's workspace.
   const fixture = new URL(page.url());
@@ -320,10 +327,7 @@ export async function mediaViewerBrowserSpec(page) {
     }
     await test.goto(address("math.md"));
     await button("Zoom in Mermaid diagram").waitFor();
-    assert(
-      (await test.locator(".mermaid math").count()) > 0,
-      "Bundled patched KaTeX must render native MathML offline",
-    );
+    await requireNativeMathML(test);
     await test.goto(address("broken.md"));
     await test.getByText(/Diagram could not be rendered:/).waitFor();
     assert(
