@@ -339,7 +339,7 @@ local function select_server(action)
             or 'Close media server (Enter stops, Esc cancels)',
           format_item = function(server)
             local label = owned_server and server.instance == owned_server.instance and ' [this session]' or ''
-            return ('%s | 127.0.0.1:%d | owner %d%s'):format(server.root, server.port, server.ownerPid, label)
+            return ('%d | %s | owner %d%s'):format(server.port, server.root, server.ownerPid, label)
           end,
         }, function(server)
           if not server then

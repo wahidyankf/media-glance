@@ -2,11 +2,12 @@ local repository = vim.uv.fs_realpath(vim.fn.getcwd())
 local binary = repository .. '/build/media-glance'
 assert(vim.fn.executable(binary) == 1, 'run npm run build explicitly before Lua integration')
 local fixture = vim.fn.tempname() .. '-media-glance-host'
-local workspace, other, state = fixture .. '/workspace with spaces', fixture .. '/other', fixture .. '/state'
+local workspace_name = '/workspace with spaces and a path longer than the narrow server picker'
+local workspace, other, state = fixture .. workspace_name, fixture .. '/other', fixture .. '/state'
 vim.fn.mkdir(workspace .. '/nested', 'p')
 vim.fn.mkdir(other, 'p')
 fixture = vim.uv.fs_realpath(fixture)
-workspace, other, state = fixture .. '/workspace with spaces', fixture .. '/other', fixture .. '/state'
+workspace, other, state = fixture .. workspace_name, fixture .. '/other', fixture .. '/state'
 vim.fn.writefile({ '# initial' }, workspace .. '/first #1.md')
 vim.fn.writefile({ '# focused' }, workspace .. '/nested/second #2.md')
 vim.fn.writefile({ '# fallback' }, workspace .. '/README.md')
@@ -87,6 +88,27 @@ local function start()
   assert(rpc(index, [[return vim.fn.exists(':MediaGlanceInstall') == 2]]), 'public installer command missing')
   return index
 end
+local function expect_picker_labels(index)
+  local contents = rpc(
+    index,
+    [[
+    local buffer = vim.api.nvim_win_get_buf(picker.window)
+    return { items = picker.items, labels = vim.api.nvim_buf_get_lines(buffer,0,-1,false),
+      width = vim.api.nvim_win_get_width(picker.window) }
+  ]]
+  )
+  assert(#contents.items == 2 and #contents.labels == 2, 'picker omitted a running server')
+  assert(#workspace > contents.width, 'fixture workspace must exceed picker width')
+  for row, server in ipairs(contents.items) do
+    local marker = server.ownerPid == hosts[index].pid and ' [this session]' or ''
+    local expected = ('%d | %s | owner %d%s'):format(server.port, server.root, server.ownerPid, marker)
+    assert(contents.labels[row] == expected, 'real picker did not show port first with workspace and owner')
+    assert(
+      contents.labels[row]:sub(1, contents.width):find(tostring(server.port), 1, true) == 1,
+      'narrow real picker hid the complete port'
+    )
+  end
+end
 local function run()
   local one, two = start(), start()
   rpc(one, [[vim.cmd('lcd ' .. vim.fn.fnameescape(...))]], { other })
@@ -122,6 +144,7 @@ local function run()
   wait(function()
     return rpc(one, 'return picker ~= nil')
   end, 'list key did not open picker')
+  expect_picker_labels(one)
   keys(one, '<CR>')
   wait(function()
     return #rpc(one, 'return browser_urls') == 4
@@ -131,6 +154,7 @@ local function run()
   wait(function()
     return rpc(one, 'return picker ~= nil')
   end, 'close key did not open picker')
+  expect_picker_labels(one)
   keys(one, '<Esc>')
   wait(function()
     return rpc(one, 'return picker == nil')
@@ -140,6 +164,7 @@ local function run()
   wait(function()
     return rpc(one, 'return picker ~= nil')
   end, 'close picker did not reopen')
+  expect_picker_labels(one)
   keys(one, 'j<CR>')
   wait(function()
     return #list() == 1
