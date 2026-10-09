@@ -41,6 +41,27 @@ explained in the [preview reference](../reference/preview-behavior.md#explorer-a
 The browser captures your position and matching media state during refresh. An external save should update what
 you read without constantly moving the sidebar, changing document text size, or resetting image zoom.
 
+## Memory measurement scope
+
+A v0.1.1 measurement on macOS arm64 sampled the Go server's `ps` RSS every 200 milliseconds while a headless Chromium
+browser loaded documents. RSS values are in KiB; dividing by 1024 gives MiB. Browser and Neovim memory are excluded.
+
+| Workload                                                        | Idle RSS | Sampled peak RSS |
+| --------------------------------------------------------------- | -------- | ---------------- |
+| Workspace with 22,005 regular files; 20 Markdown navigations    | 11.7 MiB | 18.7 MiB         |
+| Synthetic workspace with 2,003 files; 24 atomic preview updates | 11.7 MiB | 19.0 MiB         |
+
+The workspace inventory excluded Git metadata, dependency, cache, and worktree folders. The synthetic preview
+contained a Mermaid diagram and an SVG image; each external update reached the browser. Two seconds of idle
+sampling preceded each workload, and five seconds of sampling followed closing its tab. Settled RSS stayed at
+18.7 and 19.0 MiB respectively during that interval. These are observations from one machine, rather than memory
+limits or guarantees for other documents and platforms. Go may retain free pages, so RSS alone does not prove a leak.
+
+The separate resource regression warms the renderer, then exercises three batches of eight request/stream cycles
+with external writes and expanding/shrinking asset watches. After garbage collection, it requires retained heap
+growth within 2 MiB, released watchers and file descriptors, and bounded goroutine counts. The measured run passed;
+this bounded evidence does not establish a universal memory-leak guarantee.
+
 ## Local access has a defined boundary
 
 The viewer binds only to loopback and authenticates routes with a per-session token. Host/origin checks prevent

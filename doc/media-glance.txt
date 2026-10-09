@@ -45,7 +45,7 @@ Options:
     cache_dir = vim.fn.stdpath('cache') .. '/media-glance',
   })
 <
-The default binary is cache_dir/v0.1.0/media-glance. Source builds must use the
+The default binary is cache_dir/v0.1.1/media-glance. Source builds must use the
 matching release protocol. Installation fills cache_dir even when binary has an
 override. A setup call replaces earlier options rather than merging them.
 Configure options before starting a server.
@@ -70,6 +70,9 @@ without waiting for exit. install() synchronously waits for its download and
 verification steps, so Neovim can remain busy until installation finishes.
 
 The picker uses vim.ui.select, so an installed UI provider may render the list.
+Open and close picker rows show root | owner PID [this session] | :port.
+Other sessions omit [this session]. Fuzzy search depends on your UI provider;
+Telescope's ui-select supports filtering by workspace or port, native UI does not.
 Telescope's media picker maps Escape to cancel in insert and normal modes.
 
 ==============================================================================
@@ -135,7 +138,8 @@ Each installer download has a 10-second connection timeout and 60-second limit.
 Full guides, reference, and a first-preview tutorial:
 https://github.com/wahidyankf/media-glance/blob/main/docs/README.md
 
-Report reproducible issues with platform, Neovim version, plugin tag, error, and
+Report reproducible issues with platform, Neovim version, plugin tag or commit,
+error, and
 synthetic steps. Remove URLs, tokens, credentials, and private workspace content.
 
  vim:tw=78:ts=8:noet:ft=help:norl:

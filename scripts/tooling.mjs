@@ -14,7 +14,7 @@ import { join, resolve, relative } from "node:path";
 import { createHash } from "node:crypto";
 import { spawnSync } from "node:child_process";
 
-export const version = "v0.1.0";
+export const version = "v0.1.1";
 export const targets = [
   "darwin_arm64",
   "darwin_amd64",

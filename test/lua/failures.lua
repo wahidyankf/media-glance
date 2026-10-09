@@ -23,6 +23,7 @@ local originals = {
   defer_fn = vim.defer_fn,
   schedule = vim.schedule,
   stdpath = vim.fn.stdpath,
+  executable = vim.fn.executable,
   install = require('media-glance.install').install,
 }
 local jobs, notices, queued, timers, lists, browser_urls = {}, {}, {}, {}, {}, {}
@@ -180,7 +181,14 @@ local function run()
   media.list()
   assert(notices[#notices]:find 'unavailable', 'missing binary reached list')
   media = fresh({ cache_dir = root })
+  local cached_binary
+  vim.fn.executable = function(path)
+    cached_binary = path
+    return originals.executable(path)
+  end
   media.open()
+  vim.fn.executable = originals.executable
+  assert(cached_binary == root .. '/v0.1.1/media-glance', 'runtime looked up a different release cache')
   assert(notices[#notices]:find 'unavailable', 'missing cached release started a build')
   media = fresh()
   require('media-glance.install').install = function(cache)
@@ -229,6 +237,7 @@ vim.notify, vim.ui.open, vim.ui.select, vim.defer_fn, vim.schedule =
   originals.notify, originals.open, originals.select, originals.defer_fn, originals.schedule
 require('media-glance.install').install = originals.install
 vim.fn.stdpath = originals.stdpath
+vim.fn.executable = originals.executable
 package.loaded['telescope.actions'] = nil
 vim.bo.filetype = ''
 vim.fn.delete(root, 'rf')

@@ -56,6 +56,10 @@ vim.system = function(args, options)
   if args[1] == 'curl' then
     assert(args[2] == '--proto' and args[3] == '=https', 'download permits an insecure protocol')
     local destination, url = args[#args - 1], args[#args]
+    assert(
+      url:find('releases/download/v0.1.1/media-glance_v0.1.1_', 1, true),
+      'installer did not download the matching release'
+    )
     local checksum = url:match '%.sha256$'
     if (failure_stage == 'download' and not checksum) or (failure_stage == 'checksum-download' and checksum) then
       result.code, result.stderr = 22, 'HTTP failure'
@@ -73,7 +77,7 @@ vim.system = function(args, options)
   elseif args[2] == 'version' then
     result.stdout = failure_stage == 'version-json' and 'garbled'
       or vim.json.encode({
-        version = failure_stage == 'version' and 'v9.9.9' or 'v0.1.0',
+        version = failure_stage == 'version' and 'v9.9.9' or 'v0.1.1',
         protocol = 1,
       })
     if failure_stage == 'version-failed' then
@@ -95,6 +99,12 @@ local function run()
   path, failure = installer.install(directory)
   assert(not path and failure:find 'unsupported', 'Windows accepted')
   platform = { sysname = 'Darwin', machine = 'arm64' }
+  path, failure = installer.install(directory)
+  assert(
+    path == directory .. '/v0.1.1/media-glance' and not failure,
+    'matching release did not install into its versioned cache: ' .. tostring(failure)
+  )
+  originals.delete(path)
   for _, stage in ipairs({
     'no-curl',
     'no-hash',
@@ -116,20 +126,20 @@ local function run()
     hash_command = stage == 'no-hash' and '' or 'shasum'
     path, failure = installer.install(directory)
     assert(not path and type(failure) == 'string', 'installer accepted failure: ' .. stage)
-    assert(not vim.uv.fs_stat(directory .. '/v0.1.0/install.lock'), 'failed install left lock: ' .. stage)
+    assert(not vim.uv.fs_stat(directory .. '/v0.1.1/install.lock'), 'failed install left lock: ' .. stage)
     if stage ~= 'cleanup' then
-      assert(not vim.uv.fs_stat(directory .. '/v0.1.0/media-glance'), 'failed install published binary: ' .. stage)
+      assert(not vim.uv.fs_stat(directory .. '/v0.1.1/media-glance'), 'failed install published binary: ' .. stage)
     else
-      originals.delete(directory .. '/v0.1.0/media-glance')
+      originals.delete(directory .. '/v0.1.1/media-glance')
     end
   end
   failure_stage, hash_command = nil, 'shasum'
-  assert(vim.uv.fs_mkdir(directory .. '/v0.1.0/install.lock', 448))
+  assert(vim.uv.fs_mkdir(directory .. '/v0.1.1/install.lock', 448))
   path, failure = installer.install(directory)
   assert(not path and failure:find 'locked', 'concurrent install bypassed lock')
-  originals.delete(directory .. '/v0.1.0/install.lock', 'rf')
+  originals.delete(directory .. '/v0.1.1/install.lock', 'rf')
   path, failure = installer.install(directory)
-  assert(path == directory .. '/v0.1.0/media-glance' and not failure, 'valid release was not installed')
+  assert(path == directory .. '/v0.1.1/media-glance' and not failure, 'valid release was not installed')
   assert(vim.fn.executable(path) == 1, 'installed binary is not executable')
   platform = { sysname = 'Linux', machine = 'aarch64' }
   hash_command = 'sha256sum'

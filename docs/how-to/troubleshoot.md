@@ -15,10 +15,10 @@ to an executable at its absolute path; installation fills the release cache and 
 
 - **Unsupported platform:** use macOS or Linux on arm64/amd64. Windows has no supported release binary.
 - **Missing curl or checksum tool:** install `curl` and `shasum` or `sha256sum` on your PATH, then retry.
-- **Download fails:** check access to GitHub release downloads and the matching plugin tag. The command applies
-  connection and download timeouts rather than waiting indefinitely.
-- **Checksum or version/protocol fails:** stop using the failed download. Confirm the plugin tag and release match,
-  then retry. Report a repeatable failure with the asset name and error, without bypassing verification.
+- **Download fails:** check access to GitHub release downloads and the plugin's declared binary release. The command
+  applies connection and download timeouts rather than waiting indefinitely.
+- **Checksum or version/protocol fails:** stop using the failed download. Confirm the plugin revision and binary release
+  match, then retry. Report a repeatable failure with the asset name and error, without bypassing verification.
 - **Installation is locked:** follow the [interrupted-install recovery](install-and-upgrade.md) steps after confirming
   no installer is active.
 
@@ -65,6 +65,6 @@ downloaded. Markdown and ordinary UTF-8 text larger than 2 MiB use the download 
 ## Report a reproducible problem
 
 Open [GitHub Issues](https://github.com/wahidyankf/media-glance/issues) with your operating system/architecture,
-Neovim version, plugin tag, error message, and steps using a small synthetic workspace. Include whether the issue
-occurs on installation, startup, an external save, or browser rendering. Do not include viewer URLs, tokens,
+Neovim version, plugin tag or commit, error message, and steps using a small synthetic workspace. Include whether the
+issue occurs on installation, startup, an external save, or browser rendering. Do not include viewer URLs, tokens,
 registry files, credentials, or private workspace documents.

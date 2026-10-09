@@ -1,5 +1,5 @@
 vim.opt.rtp:prepend(vim.fn.getcwd())
-local root = vim.fn.tempname() .. ' media fixture'
+local root = vim.fn.tempname() .. ' media fixture with a workspace path longer than a narrow server picker'
 vim.fn.mkdir(root, 'p')
 root = vim.uv.fs_realpath(root)
 vim.fn.writefile({ '# fixture' }, root .. '/README.md')
@@ -25,6 +25,7 @@ local timers = {}
 local next_job = 100
 local chosen = nil
 local picker_items
+local picker_options
 local servers = {}
 local record = {
   type = 'ready',
@@ -92,8 +93,9 @@ local function run()
     table.insert(browsers, url)
     return {}
   end
-  vim.ui.select = function(items, _, callback)
+  vim.ui.select = function(items, options, callback)
     picker_items = items
+    picker_options = options
     callback(chosen and items[chosen] or nil)
   end
   vim.fn.jobstart = function(args, options)
@@ -150,9 +152,20 @@ local function run()
   foreign.instance, foreign.ownerPid, foreign.port, foreign.url =
     'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb', 99999, 57301, 'http://127.0.0.1:57301/v/' .. string.rep('b', 64) .. '/'
   servers = { foreign, record }
+  local function expect_picker_labels(action)
+    expect(picker_options.prompt:find(action, 1, true), 'wrong picker action prompt')
+    expect(#picker_items == 2, 'picker omitted a running server')
+    for _, server in ipairs(picker_items) do
+      local marker = server.instance == record.instance and ' [this session]' or ''
+      local expected = ('%s | owner %d%s | :%d'):format(server.root, server.ownerPid, marker, server.port)
+      local label = picker_options.format_item(server)
+      expect(label == expected, action .. ' picker did not preserve workspace/owner with a trailing colon port')
+    end
+  end
   chosen = nil
   media.close()
   settle()
+  expect_picker_labels 'Close'
   expect(picker_items[1].instance == record.instance, 'close picker did not put current owner first')
   expect(commands[#commands][2] == 'list', 'Escape stopped a server')
   chosen = 2
@@ -165,6 +178,7 @@ local function run()
   chosen = 1
   media.list()
   settle()
+  expect_picker_labels 'Open'
   expect(#browsers == 3 and browsers[3]:find '57300', 'list selection did not open selected server')
   expect(browsers[3] == browsers[2], 'list selection did not open the newly focused saved file')
   servers =

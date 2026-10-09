@@ -1,6 +1,6 @@
 # media-glance.nvim
 
-**Read your workspace in a browser without leaving your Neovim workflow.** Preview Markdown, Mermaid diagrams,
+👀 **Read your workspace in a browser without leaving your Neovim workflow.** Preview Markdown, Mermaid diagrams,
 images, and other media beside a file explorer, with live updates from saved changes made by any editor or agent.
 
 media-glance.nvim pairs a Lua plugin with a local Go server. Install its prebuilt binary once; the viewer bundles
@@ -18,11 +18,11 @@ All sample content is invented. See the [recording details](docs/assets/README.m
 
 ## Highlights
 
-- **Start with the file you are editing.** Open your current saved file and reveal it in the explorer sidebar.
-- **Read rich documents.** Render Markdown tables, task lists, local images, links, and Mermaid diagrams.
-- **Enlarge the media, keep the text size.** Zoom each image or diagram, fit it, or open an expanded view.
-- **See changes from outside Neovim.** Saved and atomic file replacements refresh the preview.
-- **Keep sessions independent.** Each Neovim session owns its server; exiting the editor stops it. Pick a running
+- 🎯 **Start with the file you are editing.** Open your current saved file and reveal it in the explorer sidebar.
+- 📄 **Read rich documents.** Render Markdown tables, task lists, local images, links, and Mermaid diagrams.
+- 🔎 **Enlarge the media, keep the text size.** Zoom each image or diagram, fit it, or open an expanded view.
+- 🔄 **See changes from outside Neovim.** Saved and atomic file replacements refresh the preview.
+- 🧩 **Keep sessions independent.** Each Neovim session owns its server; exiting the editor stops it. Pick a running
   server to reopen it or stop it explicitly.
 
 ## Install
@@ -35,7 +35,7 @@ Add this [lazy.nvim](https://lazy.folke.io/spec) spec to your plugin configurati
 ```lua
 {
   "wahidyankf/media-glance",
-  tag = "v0.1.0",
+  tag = "v0.1.1",
   lazy = false,
   main = "media-glance",
   opts = {},
@@ -48,8 +48,8 @@ Install the plugin with your plugin manager, restart Neovim, then run:
 :MediaGlanceInstall
 ```
 
-The installer downloads the binary for your platform from the matching release, verifies its SHA-256 checksum
-and version/protocol, and publishes it atomically in Neovim's cache. Installation is explicit: opening or listing
+The installer downloads the matching v0.1.1 binary for your platform, verifies its SHA-256 checksum and
+version/protocol, and publishes it atomically in Neovim's cache. Installation is explicit: opening or listing
 previews never downloads or builds anything. See [installation and upgrades](docs/how-to/install-and-upgrade.md)
 for source builds and recovery from an interrupted installation.
 
@@ -69,11 +69,14 @@ process update it: the preview refreshes while preserving document scroll and re
 | `:MediaGlanceOpen`    | Start or reuse this session's server and open the current saved file.  |
 | `:MediaGlanceList`    | Pick a server and open your current file when it belongs to that root. |
 | `:MediaGlanceClose`   | Pick a running server and stop it.                                     |
-| `:MediaGlanceInstall` | Download and verify the binary matching this plugin version.           |
+| `:MediaGlanceInstall` | Download and verify the plugin's declared binary release.              |
 
 With common picker providers, Enter confirms and Escape cancels. Server pickers use `vim.ui.select`; an installed
-UI provider can supply the picker. The plugin creates no default keybindings. For example, add these mappings
-after plugin setup:
+UI provider can supply the picker. Both open and close lists show the workspace, owner PID, `[this session]` when
+applicable, and the port at the end: `/workspace/notes | owner 1234 [this session] | :57300`.
+Fuzzy search depends on that provider: Telescope's `ui-select` extension lets you type a workspace or port to filter;
+Neovim's native selector does not provide fuzzy search. The plugin creates no default keybindings.
+For example, add these mappings after plugin setup:
 
 ```lua
 local media = require("media-glance")
@@ -141,8 +144,17 @@ Open `:help media-glance.nvim` inside Neovim, or browse the [documentation index
 | [Explanation](docs/explanation/README.md) | You want to understand sessions, watching, and access boundaries.   |
 
 For a problem, start with [troubleshooting](docs/how-to/troubleshoot.md). Report reproducible issues through
-[GitHub Issues](https://github.com/wahidyankf/media-glance/issues); include your platform, Neovim version, plugin tag,
-and the error message. Remove viewer tokens and private workspace content from reports.
+[GitHub Issues](https://github.com/wahidyankf/media-glance/issues); include your platform, Neovim version, plugin
+tag or commit, and the error message. Remove viewer tokens and private workspace content from reports.
+
+## Memory use
+
+In a v0.1.1 measurement on macOS arm64, each Go server used roughly **12–20 MiB of resident memory (RSS)**:
+about 12 MiB idle and 19 MiB after browsing documents or processing repeated external saves. The workloads used
+a workspace with about 22,000 files and a synthetic workspace with Mermaid and an SVG image. This measures the
+server process only; Neovim and browser memory are additional. Usage varies with documents, media, and platform.
+See the [measurement scope](docs/explanation/sessions-and-live-updates.md#memory-measurement-scope) for the workload
+and resource regression checks.
 
 ## Contributing and license
 

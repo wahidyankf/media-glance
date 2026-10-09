@@ -1,6 +1,6 @@
 # media-glance.nvim documentation
 
-Use media-glance.nvim to preview saved workspace files in a browser from Neovim. Local Markdown, Mermaid diagrams,
+📚 Use media-glance.nvim to preview saved workspace files in a browser from Neovim. Local Markdown, Mermaid diagrams,
 images, and other media share a file explorer and refresh when files change.
 
 ## Start here
