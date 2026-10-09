@@ -24,7 +24,7 @@ require("media-glance").setup({
 `binary`, `state_dir`, and `cache_dir` are optional strings. Use absolute paths for directory and executable
 overrides. The root must resolve to an existing directory. The default callback returns `vim.fn.getcwd(-1, -1)`.
 `root` must be callable and return a string; callback failures produce a notification. It does not run when
-reopening an already owned server. The default binary is `cache_dir/v0.1.0/media-glance` in this release.
+reopening an already owned server. The default binary is `cache_dir/v0.1.1/media-glance` in this release.
 
 A `setup` call replaces the option table; it does not merge with options from an earlier call. Configure before
 starting a server. Existing roots stay fixed, and changing registry options while a server is active can make list
@@ -50,17 +50,19 @@ The other functions return no result; startup, browser-open, list, and stop fail
 Open/list/close use asynchronous jobs or subprocess callbacks. `install()` waits for its download and verification
 steps to finish. `shutdown()` initiates cleanup; it does not wait for the server's exit callback.
 
-The list orders this session's owned server first, then other servers by port. Each item displays its root, port,
-owner PID, and an owned-session label when applicable. Selection opens the file captured before the picker, if that
+The list orders this session's owned server first, then other servers by port. Both open and close lists display
+`root | owner PID [this session] | :port`, omitting `[this session]` for other sessions. The port appears at the end.
+Selection opens the file captured before the picker, if that
 file belongs to the selected root. Otherwise it falls back to root `README.md`, then the explorer.
 
 ## Installed binary and protocol
 
-The plugin and installer target v0.1.0 and protocol 1. The installer executes `version --json` and requires both
+The installer targets binary release v0.1.1 and protocol 1. It executes
+`version --json` and requires both
 values to match before publishing the binary. The CLI reports:
 
 ```json
-{ "version": "v0.1.0", "protocol": 1 }
+{ "version": "v0.1.1", "protocol": 1 }
 ```
 
 Readiness, list, and stop records use protocol version 1; the plugin validates their shapes and identity before

@@ -157,10 +157,9 @@ local function run()
     expect(#picker_items == 2, 'picker omitted a running server')
     for _, server in ipairs(picker_items) do
       local marker = server.instance == record.instance and ' [this session]' or ''
-      local expected = ('%d | %s | owner %d%s'):format(server.port, server.root, server.ownerPid, marker)
+      local expected = ('%s | owner %d%s | :%d'):format(server.root, server.ownerPid, marker, server.port)
       local label = picker_options.format_item(server)
-      expect(label == expected, action .. ' picker did not put port before workspace and preserve ownership')
-      expect(label:sub(1, 60):find(tostring(server.port), 1, true) == 1, 'narrow picker hid the complete port')
+      expect(label == expected, action .. ' picker did not preserve workspace/owner with a trailing colon port')
     end
   end
   chosen = nil

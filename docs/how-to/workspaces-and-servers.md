@@ -36,8 +36,17 @@ root `README.md` when it exists, otherwise the explorer.
 
 ## Open another session's server
 
-Run `:MediaGlanceList` and choose a server. The picker shows its workspace, loopback port, and owner process ID;
-this session's server appears first and carries a `[this session]` label.
+Run `:MediaGlanceList` and choose a server. Each row shows its workspace and owner process ID, with the loopback port
+at the end. This session's server appears first and carries a `[this session]` label. For example:
+
+```text
+/workspace/notes | owner 1234 [this session] | :57300
+/workspace/manual | owner 5678 | :57301
+```
+
+The close picker uses the same labels. Fuzzy filtering depends on your `vim.ui.select` provider: with Telescope's
+`ui-select` extension, type part of the workspace or the port to narrow the list, then press Enter. Neovim's native
+selector does not provide fuzzy filtering.
 
 The plugin captures the current file before opening the picker. The selected server opens that file if it belongs
 to its root, otherwise its root README or explorer. Selecting a server does not transfer ownership: the session
