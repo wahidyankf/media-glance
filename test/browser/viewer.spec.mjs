@@ -270,11 +270,59 @@ test("explicit ER fills and label colors remain readable while unstyled rows kee
     ).json();
     const address = new URL(info.viewerUrl);
     address.searchParams.set("file", "zz-selected/nested/er-styles.md");
+    await page.addInitScript(() => {
+      const Source = globalThis.EventSource;
+      const pending = [];
+      let holdOpen = true;
+      globalThis.releaseInitialEROpen = () => {
+        holdOpen = false;
+        for (const callback of pending.splice(0)) callback();
+      };
+      globalThis.EventSource = class extends Source {
+        addEventListener(type, listener, options) {
+          super.addEventListener(
+            type,
+            type === "open"
+              ? (event) => {
+                  const apply = () => listener.call(this, event);
+                  if (holdOpen) {
+                    pending.push(apply);
+                    globalThis.initialEROpenQueued = true;
+                  } else apply();
+                }
+              : listener,
+            options,
+          );
+        }
+      };
+      let renders = 0;
+      globalThis.loadMermaid = async () => {
+        const { default: mermaid } = await import(
+          new URL("./vendor/mermaid.esm.min.mjs", globalThis.location.href).href
+        );
+        return {
+          default: {
+            initialize: (config) => mermaid.initialize(config),
+            render: async (...args) => {
+              const result = await mermaid.render(...args);
+              // Hold the first SSE refresh before its first and fifth SVGs attach.
+              if ([6, 10].includes(++renders))
+                await new Promise((resolve) => {
+                  globalThis.pendingERRender = renders;
+                  globalThis.releaseERRender = resolve;
+                });
+              return result;
+            },
+          },
+        };
+      };
+    });
     await page.goto(address.href);
     const colors = () =>
       page.locator(".mermaid svg").evaluateAll((svgs) =>
         svgs.map((svg) => {
           const node = svg.querySelector("g.node");
+          if (!node) return { labels: [], rows: [], odd: [], even: [] };
           const painted = (selector) =>
             [...node.querySelectorAll(selector)]
               .filter((path) => path.getAttribute("fill") !== "none")
@@ -294,15 +342,70 @@ test("explicit ER fills and label colors remain readable while unstyled rows kee
       await expect.poll(() => page.locator(".mermaid svg").count()).toBe(5);
       const expectedLabel =
         mode === "light" ? "rgb(51, 51, 51)" : "rgb(204, 204, 204)";
-      await expect
-        .poll(async () => (await colors())[3].labels[0])
-        .toBe(expectedLabel);
-      const samples = await colors();
-      for (const [index, fill] of [
+      if (mode === "light") {
+        await page.waitForFunction(() => globalThis.initialEROpenQueued);
+        await page.evaluate(() => globalThis.releaseInitialEROpen());
+        await page.waitForFunction(() => globalThis.pendingERRender === 6);
+        expect(await page.locator(".mermaid svg").count()).toBe(0);
+      }
+      const fills = [
         "rgb(1, 115, 178)",
         "rgb(40, 100, 60)",
         "rgb(96, 64, 128)",
-      ].entries()) {
+      ];
+      let samples;
+      const observedCounts = [];
+      let settled = false;
+      const readiness = expect
+        .poll(async () => {
+          samples = await colors();
+          observedCounts.push(samples.length);
+          return samples.map((sample, index) => {
+            const fill = fills[index];
+            return {
+              labels:
+                sample.labels.length > 0 &&
+                sample.labels.every(
+                  (value) =>
+                    value === (fill ? "rgb(255, 255, 255)" : expectedLabel),
+                ),
+              rows:
+                sample.rows.length > 0 &&
+                (fill
+                  ? sample.rows.every((value) => value === fill)
+                  : sample.odd.length > 0 &&
+                    sample.even.length > 0 &&
+                    sample.odd.every((value) => value === sample.odd[0]) &&
+                    sample.even.every((value) => value === sample.even[0]) &&
+                    sample.odd[0] !== sample.even[0]),
+            };
+          });
+        })
+        .toEqual(
+          Array.from({ length: 5 }, () => ({ labels: true, rows: true })),
+        )
+        .then(
+          () => {
+            settled = true;
+            return null;
+          },
+          (error) => {
+            settled = true;
+            return error;
+          },
+        );
+      if (mode === "light") {
+        await expect.poll(() => observedCounts.includes(0)).toBe(true);
+        expect(settled).toBe(false);
+        await page.evaluate(() => globalThis.releaseERRender());
+        await page.waitForFunction(() => globalThis.pendingERRender === 10);
+        await expect.poll(() => observedCounts.includes(4)).toBe(true);
+        expect(settled).toBe(false);
+        await page.evaluate(() => globalThis.releaseERRender());
+      }
+      expect(await readiness).toBeNull();
+      // Assert the successful poll's snapshot; a fresh read can race another redraw.
+      for (const [index, fill] of fills.entries()) {
         expect(samples[index].rows.length).toBeGreaterThan(0);
         expect(samples[index].labels.length).toBeGreaterThan(0);
         expect(samples[index].rows.every((value) => value === fill)).toBe(true);
@@ -314,6 +417,8 @@ test("explicit ER fills and label colors remain readable while unstyled rows kee
       }
       for (const sample of samples.slice(3)) {
         expect(sample.labels.length).toBeGreaterThan(0);
+        expect(sample.odd.length).toBeGreaterThan(0);
+        expect(sample.even.length).toBeGreaterThan(0);
         expect(sample.odd[0]).not.toBe(sample.even[0]);
         expect(sample.labels.every((value) => value === expectedLabel)).toBe(
           true,
