@@ -11,7 +11,7 @@ export function mediaLayout(intrinsic, viewport, zoom) {
   };
 }
 
-export function mediaViewers(state, host = globalThis) {
+export function mediaViewers(state, host = globalThis, createThemeControl) {
   const {
     document,
     location,
@@ -60,6 +60,7 @@ export function mediaViewers(state, host = globalThis) {
     let dimensions;
     let dialog;
     let placeholder;
+    let themeControl;
 
     function button(text, name, action) {
       const element = document.createElement("button");
@@ -140,6 +141,8 @@ export function mediaViewers(state, host = globalThis) {
       if (!dialog) return;
       const current = dialog;
       dialog = undefined;
+      themeControl?.remove();
+      themeControl = undefined;
       placeholder.replaceWith(wrapper);
       placeholder = undefined;
       current.close();
@@ -160,6 +163,10 @@ export function mediaViewers(state, host = globalThis) {
       dialog.className = "media-dialog";
       dialog.setAttribute("aria-label", `${label} — expanded view`);
       dialog.append(wrapper);
+      if (createThemeControl) {
+        themeControl = createThemeControl();
+        toolbar.append(themeControl);
+      }
       document.body.append(dialog);
       wrapper.classList.add("is-expanded");
       expand.textContent = "Close";

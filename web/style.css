@@ -1,14 +1,14 @@
 :root {
-  color-scheme: light dark;
-  --page: #f8fafc;
-  --sidebar: #edf2f7;
-  --ink: #24334a;
-  --muted: #54657d;
-  --border: #c7d2e0;
-  --accent: #245ba2;
-  --selected: #d6e7fa;
-  --code: #e7edf4;
-  --error: #a12832;
+  color-scheme: dark;
+  --page: #182331;
+  --sidebar: #202e3e;
+  --ink: #e0e8f2;
+  --muted: #aabace;
+  --border: #41526a;
+  --accent: #9ac4ff;
+  --selected: #354d6c;
+  --code: #26374a;
+  --error: #ffa5ad;
   font:
     16px/1.65 Charter,
     "Bitstream Charter",
@@ -17,18 +17,17 @@
   background: var(--page);
   color: var(--ink);
 }
-@media (prefers-color-scheme: dark) {
-  :root {
-    --page: #182331;
-    --sidebar: #202e3e;
-    --ink: #e0e8f2;
-    --muted: #aabace;
-    --border: #41526a;
-    --accent: #9ac4ff;
-    --selected: #354d6c;
-    --code: #26374a;
-    --error: #ffa5ad;
-  }
+:root[data-theme="light"] {
+  color-scheme: light;
+  --page: #fffefc;
+  --sidebar: #f7f7f5;
+  --ink: #37352f;
+  --muted: #696966;
+  --border: #e9e9e7;
+  --accent: #2f6a9f;
+  --selected: #eaf1f8;
+  --code: #f0f0ed;
+  --error: #a12832;
 }
 * {
   box-sizing: border-box;
@@ -93,6 +92,18 @@ button {
   font: inherit;
   color: inherit;
   cursor: pointer;
+}
+.theme-toggle {
+  flex: none;
+  min-height: 44px;
+  padding: 0.2rem 0.65rem;
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  background: var(--page);
+  font: inherit;
+}
+.theme-toggle:hover {
+  background: var(--selected);
 }
 .entry {
   display: block;

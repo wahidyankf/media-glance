@@ -207,6 +207,21 @@ func TestHTTPRoutingAndPreview(t *testing.T) {
 		t.Fatal(w.Code)
 	}
 }
+func TestBundledFavicon(t *testing.T) {
+	v := unitViewer(t)
+	w := unitResponse(t, v, "GET", "favicon.svg", 200)
+	if w.Header().Get("Content-Type") != "image/svg+xml" {
+		t.Fatal("favicon MIME:", w.Header().Get("Content-Type"))
+	}
+	svg := w.Body.String()
+	if !strings.Contains(svg, `viewBox="0 0 32 32"`) || !strings.Contains(svg, `#2f6a9f`) || strings.Contains(svg, "<script") || strings.Contains(svg, "href=") {
+		t.Fatal("favicon must be a self-contained eye SVG")
+	}
+	index := unitResponse(t, v, "GET", "index.html", 200).Body.String()
+	if !strings.Contains(index, `rel="icon" type="image/svg+xml" href="favicon.svg"`) {
+		t.Fatal("viewer does not declare authenticated relative favicon")
+	}
+}
 func TestHTTPBoundaryFailures(t *testing.T) {
 	v := unitViewer(t)
 	host.readDir = func(string) ([]os.DirEntry, error) { return nil, errBoundary }

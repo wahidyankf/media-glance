@@ -30,3 +30,13 @@ The recording process verifies the selected file, rendered diagram, expanded dia
 image. It then closes its browser context and server, checks an empty server registry and closed listener, and
 removes its temporary workspace. For an accessible step-by-step equivalent, use the
 [first-preview tutorial](../tutorials/preview-your-first-document.md).
+
+## Theme screenshots
+
+`dark-mode.png` and `light-mode.png` show the v0.1.2 candidate’s actual browser interface at 1180 × 900 pixels.
+They use a temporary `example-notes` workspace with four invented files, a focused `notes/guide.md`, a three-node
+flowchart, and a simple local SVG.
+Only the page viewport is captured; address bars, URL tokens, user profiles, and desktop content are excluded.
+The dark screenshot follows the system preference; the light screenshot follows the visible **Light mode** control.
+Both use bundled Mermaid with corresponding diagram colors. The owned browser and server stop after capture,
+and the fixture validates registry and temporary-workspace cleanup. The older GIF above remains a v0.1.0 recording.

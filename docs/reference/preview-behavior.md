@@ -31,7 +31,10 @@ Relative links and image paths resolve from the selected Markdown file's directo
 the workspace root, not the operating system's filesystem root. Local file links open inside the viewer; local
 images load through its authenticated raw route. Path traversal and symlinks outside the workspace are refused.
 
-External `http`, `https`, and `mailto` links remain external. Remote HTTP/HTTPS images can make network requests to
+External HTTP/HTTPS links, including autolinks and linked images, use native `target="_blank"` with
+`rel="noopener noreferrer"`. The viewer stays open; the new context receives no viewer referrer or opener. Browser
+preferences determine whether it opens as a tab or window. Email links retain their `mailto` behavior. Remote
+HTTP/HTTPS images can make network requests to
 their hosts. The bundled renderer and local files need no network after installation; remote document assets do.
 
 ## Media controls
@@ -46,6 +49,17 @@ Images and Mermaid diagrams receive their own controls:
 Fit preserves aspect ratio and does not enlarge media beyond its intrinsic size. Zoom changes media dimensions,
 not document font size. The document column has a maximum width of 123ch. Live refresh preserves media state for
 matching images and diagram positions in the same selected document; navigating to another file resets it.
+
+## Appearance
+
+The initial theme follows the system’s light/dark preference unless this browser origin has a saved manual choice.
+**Light mode** / **Dark mode** changes the appearance and saves that choice in browser local storage. A valid saved
+choice takes priority over the system preference. Invalid saved values fall back to the system; blocked storage still
+allows changing the mode in the current tab. A different server port is a different origin and can have its own choice.
+
+The control is also available inside expanded media. Theme changes re-render Mermaid with matching colors while
+preserving the selected file, explorer and document scroll, zoom, media pan, and expanded view. Images are not
+inverted. Saved external edits continue to refresh the themed preview. The bundled eye favicon works offline.
 
 ## Explorer and live updates
 

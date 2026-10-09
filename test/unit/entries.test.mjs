@@ -4,10 +4,11 @@ import { JSDOM } from "jsdom";
 
 test("browser module entry initializes and releases the native window controller", async () => {
   const dom = new JSDOM(
-    '<b id="workspace"></b><span id="status"></span><nav><div id="tree"></div></nav><main id="panel"></main>',
+    '<b id="workspace"></b><span id="status"></span><button id="theme-toggle" type="button">Light mode</button><nav><div id="tree"></div></nav><main id="panel"></main>',
     { url: "http://127.0.0.1:57300/v/token/" },
   );
   const w = dom.window;
+  w.matchMedia = () => ({ matches: false });
   w.fetch = async (route) => ({
     ok: true,
     json: async () =>

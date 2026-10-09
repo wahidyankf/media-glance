@@ -132,6 +132,10 @@ async function run(binary) {
       join(nested, "broken.md"),
       "# Invalid diagram\n\n```mermaid\nnot a diagram !!!\n```\n",
     );
+    await writeFile(
+      join(nested, "links.md"),
+      "# Link behavior\n\n[External guide](https://example.test/guide)\n\n<https://example.test/auto>\n\n[![Linked image](large.svg)](https://example.test/image)\n\n[Local document](second.md)\n\n[Email](mailto:reader@example.test)\n",
+    );
     child = spawn(
       binary,
       [

@@ -45,7 +45,7 @@ Options:
     cache_dir = vim.fn.stdpath('cache') .. '/media-glance',
   })
 <
-The default binary is cache_dir/v0.1.1/media-glance. Source builds must use the
+The default binary is cache_dir/v0.1.2/media-glance. Source builds must use the
 matching release protocol. Installation fills cache_dir even when binary has an
 override. A setup call replaces earlier options rather than merging them.
 Configure options before starting a server.
@@ -97,6 +97,14 @@ Images and Mermaid have per-item controls: zoom from 25% to 800%, Fit to reset,
 pan when larger than the viewport, and Expand for a modal view. Escape closes the
 modal and returns focus. Live updates preserve navigation and relevant zoom.
 
+The initial light/dark theme follows the system. Light mode / Dark mode changes
+it and saves your choice for this browser origin. Mermaid follows the mode;
+images retain their original colors. Expanded media includes the same control.
+Theme changes preserve your file, scroll, zoom, and expanded view.
+HTTP/HTTPS links use a native new-tab target without sending the viewer referrer.
+Browser preferences can choose a window instead. Email links keep mail behavior.
+A bundled eye icon identifies the viewer tab.
+
 Normal Neovim exit closes its server; owner death and ownership-pipe EOF also
 stop it. A living suspended Neovim owner keeps its server. Listing another
 session's server does not transfer ownership. Closing a chosen server uses its
@@ -139,7 +147,7 @@ Full guides, reference, and a first-preview tutorial:
 https://github.com/wahidyankf/media-glance/blob/main/docs/README.md
 
 Report reproducible issues with platform, Neovim version, plugin tag or commit,
-error, and
-synthetic steps. Remove URLs, tokens, credentials, and private workspace content.
+error, and synthetic steps. Remove URLs, tokens, credentials, and private
+workspace content.
 
  vim:tw=78:ts=8:noet:ft=help:norl:

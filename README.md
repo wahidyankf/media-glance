@@ -25,6 +25,13 @@ All sample content is invented. See the [recording details](docs/assets/README.m
 - 🧩 **Keep sessions independent.** Each Neovim session owns its server; exiting the editor stops it. Pick a running
   server to reopen it or stop it explicitly.
 
+## Appearance
+
+![Light theme with a focused synthetic Markdown file and Mermaid diagram](docs/assets/light-mode.png)
+
+[View the dark theme](docs/assets/dark-mode.png). The initial mode follows your system preference; the visible
+mode control lets you choose and remembers your choice. Both screenshots use invented test content.
+
 ## Install
 
 You need **Neovim 0.10 or later**, a browser, and **macOS or Linux on arm64 or amd64**. Explicit binary installation
@@ -35,7 +42,7 @@ Add this [lazy.nvim](https://lazy.folke.io/spec) spec to your plugin configurati
 ```lua
 {
   "wahidyankf/media-glance",
-  tag = "v0.1.1",
+  tag = "v0.1.2",
   lazy = false,
   main = "media-glance",
   opts = {},
@@ -48,7 +55,7 @@ Install the plugin with your plugin manager, restart Neovim, then run:
 :MediaGlanceInstall
 ```
 
-The installer downloads the matching v0.1.1 binary for your platform, verifies its SHA-256 checksum and
+The installer downloads the matching v0.1.2 binary for your platform, verifies its SHA-256 checksum and
 version/protocol, and publishes it atomically in Neovim's cache. Installation is explicit: opening or listing
 previews never downloads or builds anything. See [installation and upgrades](docs/how-to/install-and-upgrade.md)
 for source builds and recovery from an interrupted installation.
@@ -98,6 +105,11 @@ opens, so the picker buffer does not replace your intended preview.
 Images and Mermaid diagrams have independent **−**, **+**, **Fit**, and **Expand** controls. Zoom ranges from
 25% to 800% relative to fit; scroll inside enlarged media to explore it. Escape closes the expanded view and
 returns focus. The document column allows up to 123ch without changing text size.
+
+The viewer starts with your system’s light or dark appearance. **Light mode** / **Dark mode** lets you override it;
+the browser remembers your choice for that viewer origin. Diagrams follow the theme, and images keep their colors.
+HTTP/HTTPS document links open with a native new-tab target and no viewer referrer; browser preferences decide
+whether that target becomes a tab or window. A bundled eye icon identifies the viewer tab.
 
 The sidebar loads folders as you expand them. Live updates watch the selected file, referenced local assets, and
 visible directories rather than recursively indexing the entire workspace. The explorer skips `.git`,

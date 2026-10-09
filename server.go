@@ -75,7 +75,7 @@ func (v *viewer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		v.events(w, r)
 	case "", "index.html":
 		serveEmbedded(w, r, "web/index.html")
-	case "app.js", "media.js", "start.js", "style.css":
+	case "app.js", "media.js", "start.js", "style.css", "favicon.svg":
 		serveEmbedded(w, r, "web/"+route)
 	default:
 		if strings.HasPrefix(route, "vendor/") {
