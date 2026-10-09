@@ -1,0 +1,14 @@
+node_modules/
+build/
+dist/
+.coverage/
+web/vendor/
+*.go
+go.mod
+go.sum
+lua/
+test/lua/
+.githooks/
+
+# Dependency license texts are preserved verbatim.
+THIRD_PARTY_NOTICES.md

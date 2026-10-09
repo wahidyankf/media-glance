@@ -1,0 +1,95 @@
+*media-glance.txt*   Local Markdown and media previews for Neovim
+
+==============================================================================
+CONTENTS                                             *media-glance.nvim*
+
+1. Requirements                                      |media-glance-requirements|
+2. Setup                                             |media-glance-setup|
+3. Commands and API                                  |media-glance-api|
+4. Behavior                                          |media-glance-behavior|
+
+==============================================================================
+1. REQUIREMENTS                                      *media-glance-requirements*
+
+Neovim 0.10 or later on macOS or Linux, arm64 or amd64. A browser opens the
+loopback viewer. Runtime needs no Node.js, Go toolchain, or resource scheduler.
+
+Install the matching prebuilt binary explicitly with :MediaGlanceInstall.
+Installation requires curl and either shasum or sha256sum. It downloads the
+plugin's pinned release through HTTPS, verifies its SHA-256 checksum and
+version/protocol, and atomically publishes the executable in the versioned cache.
+An interrupted installation can leave an install.lock directory; after confirming
+no installer is running, remove that directory before retrying.
+
+==============================================================================
+2. SETUP                                             *media-glance-setup*
+
+The plugin creates commands but no default mappings. Example:
+>
+  local media = require('media-glance')
+  media.setup()
+  vim.keymap.set('n', '<BS>wvmo', media.open)
+  vim.keymap.set('n', '<BS>wvml', media.list)
+  vim.keymap.set('n', '<BS>wvmx', media.close)
+<
+Options:
+>
+  require('media-glance').setup({
+    -- Defaults to vim.fn.getcwd(-1, -1), the global workspace directory.
+    root = function() return vim.fn.getcwd(-1, -1) end,
+    -- Optional executable override for an explicit source build.
+    binary = '/absolute/path/to/media-glance',
+    -- Optional state and cache overrides; defaults below.
+    state_dir = vim.fn.stdpath('state') .. '/media-glance',
+    cache_dir = vim.fn.stdpath('cache') .. '/media-glance',
+  })
+<
+The default binary is cache_dir/v0.1.0/media-glance. Source builds must use the
+matching release protocol. Configure options before starting a server.
+
+==============================================================================
+3. COMMANDS AND API                                  *media-glance-api*
+
+:MediaGlanceOpen         Start this session's server or reopen its focused file.
+:MediaGlanceList         List running servers. Enter opens; Escape cancels.
+:MediaGlanceClose        List running servers. Enter stops; Escape cancels.
+:MediaGlanceInstall      Explicitly download and verify the matching release.
+
+Lua equivalents are open(), list(), close(), and install(). install() returns
+path, nil on success or nil, failure on an expected installation failure.
+shutdown() stops only this session's owned server through its ownership pipe.
+setup(options) registers commands and VimLeavePre cleanup without starting,
+building, or downloading a server.
+
+The picker uses vim.ui.select, so an installed UI provider may render the list.
+Telescope's media picker maps Escape to cancel in insert and normal modes.
+
+==============================================================================
+4. BEHAVIOR                                          *media-glance-behavior*
+
+Each Neovim session owns an independent server on the first free loopback port
+between 57300 and 57399. Actual socket binding avoids races and occupied ports.
+The server root stays fixed after startup even if Neovim changes directories.
+
+Open and list selection use the current saved file inside the selected server's
+root. The list captures the file before opening its picker. Files outside the
+root and unsaved buffers fall back to README.md, then the file explorer.
+
+The browser shows an explorer sidebar and previews Markdown, images, PDFs,
+audio, video, and ordinary text. Markdown renders local images, Mermaid diagrams,
+and supported math. Bundled assets keep these renderers available offline.
+Filesystem updates from editors or agents refresh the browser without reopening.
+
+Images and Mermaid have per-item controls: zoom from 25% to 800%, Fit to reset,
+pan when larger than the viewport, and Expand for a modal view. Escape closes the
+modal and returns focus. Live updates preserve navigation and relevant zoom.
+
+Normal Neovim exit closes its server; owner death and ownership-pipe EOF also
+stop it. A living suspended Neovim owner keeps its server. Listing another
+session's server does not transfer ownership. Closing a chosen server uses its
+validated instance identity rather than killing an arbitrary process ID.
+
+The viewer binds only to loopback, authenticates token routes, and confines file
+access to canonical workspace paths. Document scripts and raw HTML do not run.
+
+ vim:tw=78:ts=8:noet:ft=help:norl:
