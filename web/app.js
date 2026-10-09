@@ -13,8 +13,10 @@ export async function boot(host) {
     setTimeout,
     clearTimeout,
   } = host;
-  const makeViewers =
-    host.mediaViewers ?? ((state) => mediaViewers(state, host));
+  const makeViewers = (state) =>
+    host.mediaViewers
+      ? host.mediaViewers(state, createThemeControl)
+      : mediaViewers(state, host, createThemeControl);
   const loadMermaid =
     host.loadMermaid ?? (() => import("./vendor/mermaid.esm.min.mjs"));
   const lifetime = new host.AbortController();
@@ -22,6 +24,28 @@ export async function boot(host) {
   const tree = document.querySelector("#tree");
   const panel = document.querySelector("#panel");
   const status = document.querySelector("#status");
+  const themeToggle = document.querySelector("#theme-toggle");
+  let theme = matchMedia("(prefers-color-scheme: dark)").matches
+    ? "dark"
+    : "light";
+  try {
+    const saved = host.localStorage.getItem("media-glance.theme");
+    if (saved === "dark" || saved === "light") theme = saved;
+  } catch {
+    // Storage can be denied; the system preference still works.
+  }
+  themeToggle.dataset.themeControl = "";
+  function applyTheme() {
+    document.documentElement.dataset.theme = theme;
+    for (const control of document.querySelectorAll("[data-theme-control]"))
+      control.textContent = theme === "dark" ? "Light mode" : "Dark mode";
+  }
+  function createThemeControl() {
+    const control = themeToggle.cloneNode(true);
+    control.removeAttribute("id");
+    return control;
+  }
+  applyTheme();
   const expanded = new Set([""]);
   let selected = new URL(location.href).searchParams.get("file") ?? "";
   let source;
@@ -139,16 +163,14 @@ export async function boot(host) {
     try {
       if (!mermaid) {
         mermaid = (await loadMermaid()).default;
-        if (disposed || revision !== generation) return;
-        mermaid.initialize({
-          startOnLoad: false,
-          securityLevel: "strict",
-          theme: matchMedia("(prefers-color-scheme: dark)").matches
-            ? "dark"
-            : "default",
-          suppressErrorRendering: true,
-        });
       }
+      if (disposed || revision !== generation) return;
+      mermaid.initialize({
+        startOnLoad: false,
+        securityLevel: "strict",
+        theme: theme === "dark" ? "dark" : "default",
+        suppressErrorRendering: true,
+      });
       for (const [index, node] of nodes.entries()) {
         if (revision !== generation) return;
         try {
@@ -201,6 +223,15 @@ export async function boot(host) {
       if (file.kind === "markdown") {
         const content = document.createElement("article");
         content.innerHTML = file.html;
+        for (const link of content.querySelectorAll("a[href]")) {
+          if (
+            !link.hasAttribute("data-file") &&
+            /^https?:/i.test(link.getAttribute("href"))
+          ) {
+            link.target = "_blank";
+            link.rel = "noopener noreferrer";
+          }
+        }
         const rawPath = new URL("api/raw", location.href).pathname;
         for (const image of content.querySelectorAll("img")) {
           const asset = new URL(image.getAttribute("src"), location.href);
@@ -333,6 +364,29 @@ export async function boot(host) {
     });
   }
 
+  document.addEventListener(
+    "click",
+    async (event) => {
+      const control = event.target.closest?.("[data-theme-control]");
+      if (!control) return;
+      const restoreFocus =
+        control !== themeToggle && document.activeElement === control;
+      theme = theme === "dark" ? "light" : "dark";
+      try {
+        host.localStorage.setItem("media-glance.theme", theme);
+      } catch {
+        // Keep the explicit choice for this tab when persistence is denied.
+      }
+      applyTheme();
+      const revision = generation + 1;
+      await display(true);
+      if (restoreFocus && !disposed && revision === generation)
+        document
+          .querySelector("dialog [data-theme-control]")
+          ?.focus({ preventScroll: true });
+    },
+    { signal: lifetime.signal },
+  );
   panel.addEventListener(
     "click",
     (event) => {

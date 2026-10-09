@@ -25,7 +25,7 @@ func main() {
 	}
 }
 
-var version = "v0.1.1"
+var version = "v0.1.2"
 
 func run(args []string, input io.ReadCloser, output io.Writer) error {
 	if len(args) == 0 {

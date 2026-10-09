@@ -6,7 +6,7 @@ import { mediaViewers } from "../../web/media.js";
 
 function fixture(files = {}, tree = []) {
   const dom = new JSDOM(
-    '<header><b id="workspace"></b><span id="status"></span></header><nav><div id="tree"></div></nav><main id="panel"></main>',
+    '<header><b id="workspace"></b><span id="status"></span><button id="theme-toggle" type="button">Light mode</button></header><nav><div id="tree"></div></nav><main id="panel"></main>',
     { url: "http://127.0.0.1:57300/v/token/?file=doc.md" },
   );
   const w = dom.window;
@@ -106,6 +106,297 @@ const markdown = (html) => ({
   kind: "markdown",
   html,
   url: "api/raw?path=doc.md",
+});
+
+test("external HTTP links request a separate context safely, preserving local and mailto links", async () => {
+  const f = fixture({
+    "doc.md": markdown(
+      '<a id="http" href="http://example.test/read">HTTP</a>' +
+        '<a id="https" href="https://example.test/read">HTTPS</a>' +
+        '<a id="auto" href="https://example.test/auto">https://example.test/auto</a>' +
+        '<a id="linked" href="https://example.test/image"><img src="api/raw?path=a.png"></a>' +
+        '<a id="local" data-file="next.md" href="http://127.0.0.1:57300/v/token/?file=next.md">Local</a>' +
+        '<a id="mail" href="mailto:reader@example.test">Email</a>' +
+        '<a id="anchor" href="#section">Section</a>' +
+        '<a id="relative" href="?file=next.md">Relative</a>',
+    ),
+  });
+  const app = await boot(f.w);
+  for (const id of ["http", "https", "auto", "linked"]) {
+    const link = f.w.document.getElementById(id);
+    assert.equal(
+      link.target,
+      "_blank",
+      `${id} should request a separate browsing context`,
+    );
+    assert.equal(
+      link.rel,
+      "noopener noreferrer",
+      `${id} should protect the opener and referrer`,
+    );
+  }
+  for (const id of ["local", "mail", "anchor", "relative"])
+    assert.equal(
+      f.w.document.getElementById(id).target,
+      "",
+      `${id} must keep its existing navigation semantics`,
+    );
+  assert.equal(f.w.location.search, "?file=doc.md");
+  app.dispose();
+  f.dom.window.close();
+});
+
+test("theme follows the system initially, persists manual choices and tolerates invalid or denied storage", async () => {
+  for (const scenario of [
+    { systemDark: true, saved: null, initial: "dark" },
+    { systemDark: false, saved: null, initial: "light" },
+    { systemDark: false, saved: "dark", initial: "dark" },
+    { systemDark: true, saved: "light", initial: "light" },
+    { systemDark: true, saved: "invalid", initial: "dark" },
+    { systemDark: false, denied: true, initial: "light" },
+    { systemDark: true, deniedWrite: true, initial: "dark" },
+  ]) {
+    const f = fixture({ "doc.md": markdown("Theme fixture") });
+    f.w.matchMedia = () => ({ matches: scenario.systemDark });
+    if (scenario.saved)
+      f.w.localStorage.setItem("media-glance.theme", scenario.saved);
+    if (scenario.denied)
+      Object.defineProperty(f.w, "localStorage", {
+        get() {
+          throw new Error("storage denied");
+        },
+      });
+    if (scenario.deniedWrite)
+      Object.defineProperty(f.w, "localStorage", {
+        value: {
+          getItem() {
+            return null;
+          },
+          setItem() {
+            throw new Error("storage quota");
+          },
+        },
+      });
+    const app = await boot(f.w);
+    assert.equal(f.w.document.documentElement.dataset.theme, scenario.initial);
+    f.w.document.dispatchEvent(new f.w.MouseEvent("click", { bubbles: true }));
+    assert.equal(f.w.document.documentElement.dataset.theme, scenario.initial);
+    const button = f.w.document.getElementById("theme-toggle");
+    const next = scenario.initial === "dark" ? "light" : "dark";
+    assert.equal(
+      button.textContent,
+      `${next === "light" ? "Light" : "Dark"} mode`,
+    );
+    button.click();
+    await settle();
+    assert.equal(f.w.document.documentElement.dataset.theme, next);
+    if (!scenario.denied && !scenario.deniedWrite)
+      assert.equal(f.w.localStorage.getItem("media-glance.theme"), next);
+    app.dispose();
+    button.click();
+    assert.equal(
+      f.w.document.documentElement.dataset.theme,
+      next,
+      "disposed theme control must stop reacting",
+    );
+    f.dom.window.close();
+  }
+});
+
+test("theme changes re-render Mermaid and preserve file, document scroll, explorer scroll and media state", async () => {
+  const f = fixture({
+    "doc.md": markdown('<div class="mermaid" data-diagram="good"></div>'),
+  });
+  f.w.matchMedia = () => ({ matches: true });
+  const themes = [],
+    states = [],
+    preservation = [];
+  f.w.loadMermaid = async () => ({
+    default: {
+      initialize(options) {
+        themes.push(options.theme);
+      },
+      async render() {
+        return { svg: '<svg viewBox="0 0 100 100"></svg>' };
+      },
+    },
+  });
+  f.w.mediaViewers = (state, createThemeControl) => {
+    states.push(state);
+    if (states.length === 1) {
+      state.items.set("saved", { zoom: 2, left: 10, top: 20 });
+      state.expanded = "saved";
+    }
+    if (createThemeControl) f.w.document.body.append(createThemeControl());
+    return {
+      image() {},
+      diagram() {},
+      complete() {},
+      dispose(preserve) {
+        preservation.push(preserve);
+      },
+    };
+  };
+  const app = await boot(f.w);
+  const address = f.w.location.href;
+  f.w.document.getElementById("panel").scrollTop = 80;
+  f.w.document.querySelector("nav").scrollTop = 60;
+  f.w.document.getElementById("theme-toggle").click();
+  await settle();
+  assert.deepEqual(themes, ["dark", "default"]);
+  assert.equal(f.w.location.href, address);
+  assert.equal(f.w.document.getElementById("panel").scrollTop, 80);
+  assert.equal(f.w.document.querySelector("nav").scrollTop, 60);
+  assert.equal(states.at(-1), states[0]);
+  assert.equal(states.at(-1).items.get("saved").zoom, 2);
+  assert.equal(states.at(-1).expanded, "saved");
+  assert.equal(preservation[0], true);
+  const extra = f.w.document.querySelector(
+    "button[data-theme-control]:not(#theme-toggle)",
+  );
+  assert.ok(extra, "expanded views need an accessible theme action");
+  extra.click();
+  await settle();
+  assert.equal(f.w.document.documentElement.dataset.theme, "dark");
+  app.dispose();
+  f.dom.window.close();
+});
+
+test("expanded theme controls remain usable after refresh and detached controls stop reacting", async () => {
+  const f = fixture({
+    "doc.md": markdown('<img alt="Example" src="api/raw?path=image.svg">'),
+  });
+  delete f.w.mediaViewers;
+  Object.defineProperties(f.w.HTMLImageElement.prototype, {
+    naturalWidth: {
+      get() {
+        return 1600;
+      },
+    },
+    naturalHeight: {
+      get() {
+        return 800;
+      },
+    },
+    complete: {
+      get() {
+        return true;
+      },
+    },
+  });
+  Object.defineProperty(f.w.HTMLElement.prototype, "clientWidth", {
+    get() {
+      return 600;
+    },
+  });
+  Object.defineProperty(f.w.HTMLElement.prototype, "clientHeight", {
+    get() {
+      return 400;
+    },
+  });
+  const app = await boot(f.w);
+  f.w.document.querySelector('[aria-label="Expand Example"]').click();
+  const old = f.w.document.querySelector("dialog [data-theme-control]");
+  assert.ok(old);
+  old.focus();
+  old.click();
+  await settle();
+  assert.equal(f.w.document.documentElement.dataset.theme, "dark");
+  assert.equal(
+    old.isConnected,
+    false,
+    "refresh must remove the obsolete expanded theme control",
+  );
+  old.click();
+  await settle();
+  assert.equal(f.w.document.documentElement.dataset.theme, "dark");
+  const fresh = f.w.document.querySelector("dialog [data-theme-control]");
+  assert.ok(
+    fresh && fresh !== old,
+    "expanded state must restore a fresh accessible control",
+  );
+  assert.equal(
+    f.w.document.activeElement,
+    fresh,
+    "keyboard focus must follow the replacement theme control",
+  );
+  fresh.click();
+  await settle();
+  assert.equal(f.w.document.documentElement.dataset.theme, "light");
+  app.dispose();
+  assert.equal(f.w.document.querySelector("dialog"), null);
+  fresh.click();
+  assert.equal(f.w.document.documentElement.dataset.theme, "light");
+  f.dom.window.close();
+});
+
+test("latest theme wins during delayed Mermaid rendering and disposed pending loads cannot update the page", async () => {
+  const f = fixture({
+    "doc.md": markdown('<div class="mermaid" data-diagram="good"></div>'),
+  });
+  let current,
+    hold = false;
+  const renders = [];
+  f.w.loadMermaid = async () => ({
+    default: {
+      initialize(options) {
+        current = options.theme;
+      },
+      async render() {
+        const result = {
+          svg: `<svg data-rendered-theme="${current}" viewBox="0 0 100 100"></svg>`,
+        };
+        if (!hold) return result;
+        return new Promise((resolve) => renders.push(() => resolve(result)));
+      },
+    },
+  });
+  const app = await boot(f.w);
+  hold = true;
+  f.w.document.getElementById("theme-toggle").click();
+  await settle();
+  f.w.document.getElementById("theme-toggle").click();
+  await settle();
+  assert.equal(renders.length, 2);
+  renders[1]();
+  await settle();
+  renders[0]();
+  await settle();
+  assert.equal(f.w.document.documentElement.dataset.theme, "light");
+  assert.equal(
+    f.w.document.querySelector("svg").dataset.renderedTheme,
+    "default",
+  );
+  app.dispose();
+  f.dom.window.close();
+
+  const other = fixture({
+    "doc.md": markdown('<div class="mermaid" data-diagram="good"></div>'),
+  });
+  let release,
+    initialized = 0;
+  other.w.loadMermaid = () =>
+    new Promise((resolve) => {
+      release = () =>
+        resolve({
+          default: {
+            initialize() {
+              initialized++;
+            },
+            render() {
+              throw new Error("disposed render reached");
+            },
+          },
+        });
+    });
+  const pending = boot(other.w);
+  await settle();
+  other.w.dispatchEvent(new other.w.Event("pagehide"));
+  release();
+  await pending;
+  assert.equal(initialized, 0);
+  assert.equal(other.w.document.querySelector("svg"), null);
+  other.dom.window.close();
 });
 
 test("boot renders selected markdown, revises local assets, follows internal links and cleans up", async () => {

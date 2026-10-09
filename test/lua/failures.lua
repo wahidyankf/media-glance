@@ -188,7 +188,7 @@ local function run()
   end
   media.open()
   vim.fn.executable = originals.executable
-  assert(cached_binary == root .. '/v0.1.1/media-glance', 'runtime looked up a different release cache')
+  assert(cached_binary == root .. '/v0.1.2/media-glance', 'runtime looked up a different release cache')
   assert(notices[#notices]:find 'unavailable', 'missing cached release started a build')
   media = fresh()
   require('media-glance.install').install = function(cache)
