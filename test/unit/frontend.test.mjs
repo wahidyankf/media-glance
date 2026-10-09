@@ -221,13 +221,12 @@ test("theme changes re-render Mermaid and preserve file, document scroll, explor
       },
     },
   });
-  f.w.mediaViewers = (state, createThemeControl) => {
+  f.w.mediaViewers = (state) => {
     states.push(state);
     if (states.length === 1) {
       state.items.set("saved", { zoom: 2, left: 10, top: 20 });
       state.expanded = "saved";
     }
-    if (createThemeControl) f.w.document.body.append(createThemeControl());
     return {
       image() {},
       diagram() {},
@@ -251,18 +250,12 @@ test("theme changes re-render Mermaid and preserve file, document scroll, explor
   assert.equal(states.at(-1).items.get("saved").zoom, 2);
   assert.equal(states.at(-1).expanded, "saved");
   assert.equal(preservation[0], true);
-  const extra = f.w.document.querySelector(
-    "button[data-theme-control]:not(#theme-toggle)",
-  );
-  assert.ok(extra, "expanded views need an accessible theme action");
-  extra.click();
-  await settle();
-  assert.equal(f.w.document.documentElement.dataset.theme, "dark");
+  assert.equal(f.w.document.querySelectorAll("[data-theme-control]").length, 1);
   app.dispose();
   f.dom.window.close();
 });
 
-test("expanded theme controls remain usable after refresh and detached controls stop reacting", async () => {
+test("expanded media has no theme selector and preserves the header-selected mode through refresh", async () => {
   const f = fixture({
     "doc.md": markdown('<img alt="Example" src="api/raw?path=image.svg">'),
   });
@@ -296,37 +289,209 @@ test("expanded theme controls remain usable after refresh and detached controls 
   });
   const app = await boot(f.w);
   f.w.document.querySelector('[aria-label="Expand Example"]').click();
-  const old = f.w.document.querySelector("dialog [data-theme-control]");
-  assert.ok(old);
-  old.focus();
-  old.click();
-  await settle();
-  assert.equal(f.w.document.documentElement.dataset.theme, "dark");
   assert.equal(
-    old.isConnected,
-    false,
-    "refresh must remove the obsolete expanded theme control",
+    f.w.document.querySelector("dialog [data-theme-control]"),
+    null,
+    "expanded assets must not contain theme selection",
   );
-  old.click();
-  await settle();
-  assert.equal(f.w.document.documentElement.dataset.theme, "dark");
-  const fresh = f.w.document.querySelector("dialog [data-theme-control]");
-  assert.ok(
-    fresh && fresh !== old,
-    "expanded state must restore a fresh accessible control",
-  );
-  assert.equal(
-    f.w.document.activeElement,
-    fresh,
-    "keyboard focus must follow the replacement theme control",
-  );
-  fresh.click();
-  await settle();
+  assert.equal(f.w.document.querySelectorAll("[data-theme-control]").length, 1);
   assert.equal(f.w.document.documentElement.dataset.theme, "light");
+  await app.refresh();
+  await settle();
+  assert.equal(f.w.document.querySelector("dialog [data-theme-control]"), null);
+  assert.ok(
+    f.w.document.querySelector("dialog"),
+    "live refresh preserves expanded media",
+  );
+  f.w.document.querySelector('[aria-label="Close expanded view"]').click();
+  f.w.document.getElementById("theme-toggle").click();
+  await settle();
+  assert.equal(f.w.document.documentElement.dataset.theme, "dark");
+  f.w.document.querySelector('[aria-label="Expand Example"]').click();
+  assert.equal(f.w.document.querySelector("dialog [data-theme-control]"), null);
+  assert.equal(f.w.document.documentElement.dataset.theme, "dark");
   app.dispose();
   assert.equal(f.w.document.querySelector("dialog"), null);
+  f.dom.window.close();
+});
+
+test("code copy uses exact rendered code, reports results and ignores obsolete pending controls", async () => {
+  const code = 'GET /notes?x=1&y=2\n\t{"label":"<safe>"}\n';
+  const f = fixture({
+    "doc.md": markdown(
+      "<p><code>inline</code></p><pre><code>GET /notes?x=1&amp;y=2\n\t{&quot;label&quot;:&quot;&lt;safe&gt;&quot;}\n</code></pre>",
+    ),
+  });
+  const copies = [];
+  Object.defineProperty(f.w.navigator, "clipboard", {
+    configurable: true,
+    value: {
+      async writeText(text) {
+        copies.push(text);
+      },
+    },
+  });
+  const app = await boot(f.w);
+  const button = f.w.document.querySelector("[data-copy-code]");
+  assert.ok(button, "fenced code needs an accessible copy action");
+  assert.equal(button.getAttribute("aria-label"), "Copy code");
+  assert.equal(
+    f.w.document.querySelectorAll("[data-copy-code]").length,
+    1,
+    "inline code gets no copy action",
+  );
+  button.click();
+  await settle();
+  assert.deepEqual(copies, [code]);
+  assert.equal(
+    f.w.document.querySelector("pre [role=status]").textContent,
+    "Copied",
+  );
+  assert.equal(button.disabled, false);
+  f.w.navigator.clipboard.writeText = async () => {
+    throw new Error("denied");
+  };
+  button.click();
+  await settle();
+  assert.equal(
+    f.w.document.querySelector("pre [role=status]").textContent,
+    "Copy failed",
+  );
+  Object.defineProperty(f.w.navigator, "clipboard", {
+    configurable: true,
+    value: undefined,
+  });
+  button.click();
+  await settle();
+  assert.equal(
+    f.w.document.querySelector("pre [role=status]").textContent,
+    "Copy failed",
+  );
+  let resolve;
+  Object.defineProperty(f.w.navigator, "clipboard", {
+    configurable: true,
+    value: {
+      writeText() {
+        return new Promise((done) => {
+          resolve = done;
+        });
+      },
+    },
+  });
+  button.click();
+  await settle();
+  assert.equal(button.disabled, true);
+  await app.refresh();
+  await settle();
+  const fresh = f.w.document.querySelector("[data-copy-code]");
+  resolve();
+  await settle();
+  assert.notEqual(fresh, button);
+  assert.equal(f.w.document.querySelector("pre [role=status]").textContent, "");
   fresh.click();
-  assert.equal(f.w.document.documentElement.dataset.theme, "light");
+  await settle();
+  app.dispose();
+  resolve();
+  await settle();
+  assert.equal(
+    fresh.disabled,
+    true,
+    "disposed page must not mutate pending copy controls",
+  );
+  f.dom.window.close();
+});
+
+test("viewer waits for bundled UI/math fonts before fitting media or rendering Mermaid", async () => {
+  const f = fixture({
+    "doc.md": markdown('<div class="mermaid" data-diagram="good"></div>'),
+  });
+  let release,
+    rendered = 0;
+  const loaded = [];
+  const wait = new Promise((resolve) => {
+    release = resolve;
+  });
+  Object.defineProperty(f.w.document, "fonts", {
+    value: {
+      load(face) {
+        loaded.push(face);
+        return wait;
+      },
+      ready: wait,
+    },
+  });
+  f.w.loadMermaid = async () => ({
+    default: {
+      initialize(config) {
+        assert.equal(config.fontFamily, "Source Sans 3");
+        assert.equal(config.themeVariables.fontFamily, "Source Sans 3");
+        assert.deepEqual(config.sequence, {
+          actorFontFamily: "Source Sans 3",
+          noteFontFamily: "Source Sans 3",
+          messageFontFamily: "Source Sans 3",
+        });
+        assert.deepEqual(config.journey, {
+          taskFontFamily: "Source Sans 3",
+          titleFontFamily: "Source Sans 3",
+        });
+        assert.equal(config.timeline.taskFontFamily, "Source Sans 3");
+        assert.equal(Object.keys(config.c4).length, 22);
+        assert.ok(
+          Object.values(config.c4).every((value) => value === "Source Sans 3"),
+        );
+      },
+      async render() {
+        rendered++;
+        return { svg: '<svg viewBox="0 0 100 100"></svg>' };
+      },
+    },
+  });
+  const pending = boot(f.w);
+  await settle();
+  assert.ok(
+    loaded.some((face) => face.includes("Source Sans 3")),
+    "UI font must load before Mermaid geometry",
+  );
+  assert.ok(
+    loaded.some((face) => face.includes("STIX Two Math")),
+    "native math font must load before Mermaid geometry",
+  );
+  assert.equal(rendered, 0);
+  release();
+  const app = await pending;
+  assert.equal(rendered, 1);
+  app.dispose();
+  f.dom.window.close();
+});
+
+test("disposing during pending font readiness cannot attach media or diagrams", async () => {
+  const f = fixture({
+    "doc.md": markdown('<div class="mermaid" data-diagram="good"></div>'),
+  });
+  let release,
+    renders = 0;
+  const wait = new Promise((resolve) => {
+    release = resolve;
+  });
+  Object.defineProperty(f.w.document, "fonts", {
+    value: {
+      load() {
+        return wait;
+      },
+      ready: wait,
+    },
+  });
+  f.w.loadMermaid = async () => {
+    renders++;
+    throw new Error("disposed renderer loaded");
+  };
+  const pending = boot(f.w);
+  await settle();
+  f.w.dispatchEvent(new f.w.Event("pagehide"));
+  release();
+  await pending;
+  assert.equal(renders, 0);
+  assert.equal(f.w.document.querySelector(".media-viewer"), null);
   f.dom.window.close();
 });
 

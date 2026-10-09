@@ -45,7 +45,7 @@ Options:
     cache_dir = vim.fn.stdpath('cache') .. '/media-glance',
   })
 <
-The default binary is cache_dir/v0.1.2/media-glance. Source builds must use the
+The default binary is cache_dir/v0.1.3/media-glance. Source builds must use the
 matching release protocol. Installation fills cache_dir even when binary has an
 override. A setup call replaces earlier options rather than merging them.
 Configure options before starting a server.
@@ -99,11 +99,19 @@ modal and returns focus. Live updates preserve navigation and relevant zoom.
 
 The initial light/dark theme follows the system. Light mode / Dark mode changes
 it and saves your choice for this browser origin. Mermaid follows the mode;
-images retain their original colors. Expanded media includes the same control.
+images retain their original colors. Theme selection stays in the page header;
+expanded media has only media controls.
 Theme changes preserve your file, scroll, zoom, and expanded view.
 HTTP/HTTPS links use a native new-tab target without sending the viewer referrer.
 Browser preferences can choose a window instead. Email links keep mail behavior.
 A bundled eye icon identifies the viewer tab.
+
+Code fences have a top-right Copy button that copies exact text, tabs, and
+newlines. Success/failure feedback appears only after the clipboard operation.
+Viewer fonts are bundled under SIL OFL 1.1: Source Serif 4, Source Sans 3,
+Source Code Pro, and STIX Two Math. No font purchase is required.
+Explicit ER class/node fills also cover attribute rows; unstyled rows retain
+the selected theme’s alternating backgrounds.
 
 Normal Neovim exit closes its server; owner death and ownership-pipe EOF also
 stop it. A living suspended Neovim owner keeps its server. Listing another

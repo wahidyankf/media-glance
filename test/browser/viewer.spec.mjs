@@ -157,8 +157,7 @@ test("system theme, manual persistence, diagram rendering and expanded media sur
         text: globalThis.getComputedStyle(svg.querySelector(".nodeLabel"))
           .color,
       }));
-    const darkDiagram = await diagramPalette();
-    expect(darkDiagram).toEqual({
+    await expect.poll(diagramPalette).toEqual({
       background: "#182331",
       text: "rgb(204, 204, 204)",
     });
@@ -192,8 +191,7 @@ test("system theme, manual persistence, diagram rendering and expanded media sur
     await expect
       .poll(diagramPalette)
       .toEqual({ background: "#fffefc", text: "rgb(51, 51, 51)" });
-    const lightDiagram = await diagramPalette();
-    expect(lightDiagram).toEqual({
+    await expect.poll(diagramPalette).toEqual({
       background: "#fffefc",
       text: "rgb(51, 51, 51)",
     });
@@ -228,31 +226,386 @@ test("system theme, manual persistence, diagram rendering and expanded media sur
     await diagram
       .getByRole("button", { name: "Expand Mermaid diagram", exact: true })
       .click();
-    const control = page
-      .locator("dialog")
-      .getByRole("button", { name: "Dark mode", exact: true });
-    await control.focus();
-    await control.press("Space");
-    await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
-    await expect(page.locator("dialog")).toBeVisible();
-    await expect(page.locator("dialog output")).toHaveText(diagramZoom);
     await expect(
       page
         .locator("dialog")
-        .getByRole("button", { name: "Light mode", exact: true }),
-    ).toBeFocused();
+        .getByRole("button", { name: /^(Light|Dark) mode$/ }),
+    ).toHaveCount(0);
+    await expect(page.locator("html")).toHaveAttribute("data-theme", "light");
+    await expect(page.locator("dialog")).toBeVisible();
+    await expect(page.locator("dialog output")).toHaveText(diagramZoom);
     await page.request.post(new URL("edit-diagram", ready.fixtureUrl).href);
     await expect(page.locator("dialog")).toContainText(
       "externally_updated_field",
     );
-    await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
+    await expect(page.locator("html")).toHaveAttribute("data-theme", "light");
     await expect(page.locator("dialog output")).toHaveText(diagramZoom);
+    await expect(
+      page
+        .locator("dialog")
+        .getByRole("button", { name: /^(Light|Dark) mode$/ }),
+    ).toHaveCount(0);
     await page
       .locator("dialog")
       .getByRole("button", { name: "Close expanded view", exact: true })
       .click();
-    await page.getByRole("button", { name: "Light mode", exact: true }).click();
-    await expect(page.locator("html")).toHaveAttribute("data-theme", "light");
+    await page.getByRole("button", { name: "Dark mode", exact: true }).click();
+    await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
+  } finally {
+    const stopped = await fixture.stop();
+    expect(stopped.code, stopped.stderr).toBe(0);
+    expect(stopped.cleanup?.cleanup).toBe("complete");
+  }
+});
+
+test("explicit ER fills and label colors remain readable while unstyled rows keep theme stripes", async ({
+  page,
+}) => {
+  const fixture = createFixture(resolve("build/media-glance"));
+  await page.emulateMedia({ colorScheme: "light" });
+  try {
+    const ready = await fixture.ready;
+    const info = await (
+      await page.request.get(new URL("info", ready.fixtureUrl).href)
+    ).json();
+    const address = new URL(info.viewerUrl);
+    address.searchParams.set("file", "zz-selected/nested/er-styles.md");
+    await page.addInitScript(() => {
+      const Source = globalThis.EventSource;
+      const pending = [];
+      let holdOpen = true;
+      globalThis.releaseInitialEROpen = () => {
+        holdOpen = false;
+        for (const callback of pending.splice(0)) callback();
+      };
+      globalThis.EventSource = class extends Source {
+        addEventListener(type, listener, options) {
+          super.addEventListener(
+            type,
+            type === "open"
+              ? (event) => {
+                  const apply = () => listener.call(this, event);
+                  if (holdOpen) {
+                    pending.push(apply);
+                    globalThis.initialEROpenQueued = true;
+                  } else apply();
+                }
+              : listener,
+            options,
+          );
+        }
+      };
+      let renders = 0;
+      globalThis.loadMermaid = async () => {
+        const { default: mermaid } = await import(
+          new URL("./vendor/mermaid.esm.min.mjs", globalThis.location.href).href
+        );
+        return {
+          default: {
+            initialize: (config) => mermaid.initialize(config),
+            render: async (...args) => {
+              const result = await mermaid.render(...args);
+              // Hold the first SSE refresh before its first and fifth SVGs attach.
+              if ([6, 10].includes(++renders))
+                await new Promise((resolve) => {
+                  globalThis.pendingERRender = renders;
+                  globalThis.releaseERRender = resolve;
+                });
+              return result;
+            },
+          },
+        };
+      };
+    });
+    await page.goto(address.href);
+    const colors = () =>
+      page.locator(".mermaid svg").evaluateAll((svgs) =>
+        svgs.map((svg) => {
+          const node = svg.querySelector("g.node");
+          if (!node) return { labels: [], rows: [], odd: [], even: [] };
+          const painted = (selector) =>
+            [...node.querySelectorAll(selector)]
+              .filter((path) => path.getAttribute("fill") !== "none")
+              .map((path) => globalThis.getComputedStyle(path).fill);
+          return {
+            labels: [...node.querySelectorAll(".nodeLabel")].map(
+              (label) => globalThis.getComputedStyle(label).color,
+            ),
+            rows: painted(".row-rect-odd path, .row-rect-even path"),
+            odd: painted(".row-rect-odd path"),
+            even: painted(".row-rect-even path"),
+          };
+        }),
+      );
+    for (const mode of ["light", "dark"]) {
+      await expect(page.locator("html")).toHaveAttribute("data-theme", mode);
+      await expect.poll(() => page.locator(".mermaid svg").count()).toBe(5);
+      const expectedLabel =
+        mode === "light" ? "rgb(51, 51, 51)" : "rgb(204, 204, 204)";
+      if (mode === "light") {
+        await page.waitForFunction(() => globalThis.initialEROpenQueued);
+        await page.evaluate(() => globalThis.releaseInitialEROpen());
+        await page.waitForFunction(() => globalThis.pendingERRender === 6);
+        expect(await page.locator(".mermaid svg").count()).toBe(0);
+      }
+      const fills = [
+        "rgb(1, 115, 178)",
+        "rgb(40, 100, 60)",
+        "rgb(96, 64, 128)",
+      ];
+      let samples;
+      const observedCounts = [];
+      let settled = false;
+      const readiness = expect
+        .poll(async () => {
+          samples = await colors();
+          observedCounts.push(samples.length);
+          return samples.map((sample, index) => {
+            const fill = fills[index];
+            return {
+              labels:
+                sample.labels.length > 0 &&
+                sample.labels.every(
+                  (value) =>
+                    value === (fill ? "rgb(255, 255, 255)" : expectedLabel),
+                ),
+              rows:
+                sample.rows.length > 0 &&
+                (fill
+                  ? sample.rows.every((value) => value === fill)
+                  : sample.odd.length > 0 &&
+                    sample.even.length > 0 &&
+                    sample.odd.every((value) => value === sample.odd[0]) &&
+                    sample.even.every((value) => value === sample.even[0]) &&
+                    sample.odd[0] !== sample.even[0]),
+            };
+          });
+        })
+        .toEqual(
+          Array.from({ length: 5 }, () => ({ labels: true, rows: true })),
+        )
+        .then(
+          () => {
+            settled = true;
+            return null;
+          },
+          (error) => {
+            settled = true;
+            return error;
+          },
+        );
+      if (mode === "light") {
+        await expect.poll(() => observedCounts.includes(0)).toBe(true);
+        expect(settled).toBe(false);
+        await page.evaluate(() => globalThis.releaseERRender());
+        await page.waitForFunction(() => globalThis.pendingERRender === 10);
+        await expect.poll(() => observedCounts.includes(4)).toBe(true);
+        expect(settled).toBe(false);
+        await page.evaluate(() => globalThis.releaseERRender());
+      }
+      expect(await readiness).toBeNull();
+      // Assert the successful poll's snapshot; a fresh read can race another redraw.
+      for (const [index, fill] of fills.entries()) {
+        expect(samples[index].rows.length).toBeGreaterThan(0);
+        expect(samples[index].labels.length).toBeGreaterThan(0);
+        expect(samples[index].rows.every((value) => value === fill)).toBe(true);
+        expect(
+          samples[index].labels.every(
+            (value) => value === "rgb(255, 255, 255)",
+          ),
+        ).toBe(true);
+      }
+      for (const sample of samples.slice(3)) {
+        expect(sample.labels.length).toBeGreaterThan(0);
+        expect(sample.odd.length).toBeGreaterThan(0);
+        expect(sample.even.length).toBeGreaterThan(0);
+        expect(sample.odd[0]).not.toBe(sample.even[0]);
+        expect(sample.labels.every((value) => value === expectedLabel)).toBe(
+          true,
+        );
+      }
+      if (mode === "light")
+        await page
+          .getByRole("button", { name: "Dark mode", exact: true })
+          .click();
+    }
+  } finally {
+    const stopped = await fixture.stop();
+    expect(stopped.code, stopped.stderr).toBe(0);
+    expect(stopped.cleanup?.cleanup).toBe("complete");
+  }
+});
+
+test("fenced code copy preserves exact text and refreshes after outside saves", async ({
+  page,
+  context,
+}) => {
+  const fixture = createFixture(resolve("build/media-glance"));
+  await context.grantPermissions(["clipboard-read", "clipboard-write"]);
+  try {
+    const ready = await fixture.ready;
+    const info = await (
+      await page.request.get(new URL("info", ready.fixtureUrl).href)
+    ).json();
+    const address = new URL(info.viewerUrl);
+    address.searchParams.set("file", "zz-selected/nested/copy.md");
+    await page.goto(address.href);
+    const button = page.getByRole("button", { name: "Copy code", exact: true });
+    await expect(button).toHaveCount(1);
+    expect(await page.locator("p code").count()).toBe(1);
+    await button.focus();
+    await button.press("Space");
+    await expect(page.locator("pre [role=status]")).toHaveText("Copied");
+    expect(
+      await page.evaluate(() => globalThis.navigator.clipboard.readText()),
+    ).toBe('GET /notes?x=1&y=2\n\t{"label":"<safe>"}\n');
+    const placement = await page.locator("pre").evaluate((pre) => {
+      const parent = pre.getBoundingClientRect(),
+        control = pre.querySelector("button").getBoundingClientRect(),
+        code = pre.querySelector("code").getBoundingClientRect();
+      return {
+        topRight: control.top < code.top && control.right <= parent.right,
+        clear: control.bottom <= code.top,
+      };
+    });
+    expect(placement).toEqual({ topRight: true, clear: true });
+    expect(
+      await page
+        .locator("pre code")
+        .evaluate((code) => globalThis.getComputedStyle(code).fontFamily),
+    ).toContain("Source Code Pro");
+    await page.getByRole("button", { name: "Dark mode", exact: true }).click();
+    await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
+    const darkPlacement = await page.locator("pre").evaluate((pre) => {
+      const button = pre.querySelector("button"),
+        control = button.getBoundingClientRect(),
+        code = pre.querySelector("code").getBoundingClientRect();
+      const style = globalThis.getComputedStyle(button);
+      return {
+        clear: control.bottom <= code.top,
+        readable: style.color !== style.backgroundColor,
+      };
+    });
+    expect(darkPlacement).toEqual({ clear: true, readable: true });
+    await page.request.post(new URL("edit-code", ready.fixtureUrl).href);
+    await expect(page.locator("pre code")).toContainText("external update");
+    await button.click();
+    await expect(page.locator("pre [role=status]")).toHaveText("Copied");
+    expect(
+      await page.evaluate(() => globalThis.navigator.clipboard.readText()),
+    ).toBe('{\n\t"saved": "external update"\n}\n');
+  } finally {
+    const stopped = await fixture.stop();
+    expect(stopped.code, stopped.stderr).toBe(0);
+    expect(stopped.cleanup?.cleanup).toBe("complete");
+  }
+});
+
+test("bundled free fonts load offline for prose, controls, code, Mermaid and native MathML", async ({
+  page,
+}) => {
+  const fixture = createFixture(resolve("build/media-glance"));
+  const outbound = [];
+  await page.route("**/*", (route) => {
+    const url = new URL(route.request().url());
+    if (url.hostname === "127.0.0.1") return route.continue();
+    outbound.push(url.hostname);
+    return route.abort();
+  });
+  try {
+    const ready = await fixture.ready;
+    const info = await (
+      await page.request.get(new URL("info", ready.fixtureUrl).href)
+    ).json();
+    const address = new URL(info.viewerUrl);
+    address.searchParams.set("file", "zz-selected/nested/math.md");
+    await page.goto(address.href);
+    await requireNativeMathML(page);
+    const fonts = await page.evaluate(async () => {
+      const specs = [
+        '400 16px "Source Serif 4"',
+        '700 16px "Source Serif 4"',
+        'italic 400 16px "Source Serif 4"',
+        'italic 700 16px "Source Serif 4"',
+        '400 14px "Source Sans 3"',
+        '400 14px "Source Code Pro"',
+        '400 16px "STIX Two Math"',
+      ];
+      const loaded = await Promise.all(
+        specs.map(async (value) => {
+          const faces = await globalThis.document.fonts.load(value);
+          return (
+            faces.length > 0 && faces.every((face) => face.status === "loaded")
+          );
+        }),
+      );
+      await globalThis.document.fonts.ready;
+      return loaded;
+    });
+    expect(fonts).toEqual(Array(7).fill(true));
+    const familiesHandle = await page.waitForFunction(() => {
+      if (
+        !globalThis.document.querySelector(".mermaid .media-viewer math") ||
+        !globalThis.document.querySelector(".mermaid .nodeLabel")
+      )
+        return false;
+      return {
+        prose: globalThis.getComputedStyle(
+          globalThis.document.querySelector("article"),
+        ).fontFamily,
+        ui: globalThis.getComputedStyle(
+          globalThis.document.querySelector("#theme-toggle"),
+        ).fontFamily,
+        math: globalThis.getComputedStyle(
+          globalThis.document.querySelector("math"),
+        ).fontFamily,
+        diagram: globalThis.getComputedStyle(
+          globalThis.document.querySelector(".mermaid .nodeLabel"),
+        ).fontFamily,
+      };
+    });
+    const families = await familiesHandle.jsonValue();
+    await familiesHandle.dispose();
+    expect(families.prose).toContain("Source Serif 4");
+    expect(families.ui).toContain("Source Sans 3");
+    expect(families.math).toContain("STIX Two Math");
+    expect(families.diagram).toContain("Source Sans 3");
+    const geometry = (selector) =>
+      page.locator(selector).evaluate((svg) => ({
+        viewBox: svg.getAttribute("viewBox"),
+        labels: [...svg.querySelectorAll(".nodeLabel")].map((label) => ({
+          family: globalThis.getComputedStyle(label).fontFamily,
+          width: label.offsetWidth,
+        })),
+        math: [...svg.querySelectorAll("math")].map(
+          (node) => globalThis.getComputedStyle(node).fontFamily,
+        ),
+      }));
+    const ordinary = await geometry(".mermaid svg");
+    expect(ordinary.labels.length).toBeGreaterThan(0);
+    expect(ordinary.math.length).toBeGreaterThan(0);
+    await page
+      .getByRole("button", { name: "Expand Mermaid diagram", exact: true })
+      .click();
+    const expanded = await geometry("dialog svg");
+    expect(expanded.viewBox).toBe(ordinary.viewBox);
+    expect(expanded.labels.map((label) => label.family)).toEqual(
+      ordinary.labels.map((label) => label.family),
+    );
+    expect(expanded.math).toEqual(ordinary.math);
+    expect(
+      expanded.math.every((family) => family.includes("STIX Two Math")),
+    ).toBe(true);
+    // Expansion must retain label metrics, not just a font name declaration.
+    for (const [index, label] of expanded.labels.entries()) {
+      expect(label.width).toBeCloseTo(ordinary.labels[index].width, 1);
+    }
+    await expect(page.locator("dialog [data-theme-control]")).toHaveCount(0);
+    await page
+      .getByRole("button", { name: "Close expanded view", exact: true })
+      .click();
+    expect((await geometry(".mermaid svg")).labels).toEqual(ordinary.labels);
+    expect(outbound).toEqual([]);
   } finally {
     const stopped = await fixture.stop();
     expect(stopped.code, stopped.stderr).toBe(0);

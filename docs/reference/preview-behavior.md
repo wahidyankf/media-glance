@@ -57,9 +57,29 @@ The initial theme follows the system’s light/dark preference unless this brows
 choice takes priority over the system preference. Invalid saved values fall back to the system; blocked storage still
 allows changing the mode in the current tab. A different server port is a different origin and can have its own choice.
 
-The control is also available inside expanded media. Theme changes re-render Mermaid with matching colors while
+Theme selection stays in the page header. Expanded media has no theme selector and uses the already selected mode.
+Theme changes re-render Mermaid with matching colors while
 preserving the selected file, explorer and document scroll, zoom, media pan, and expanded view. Images are not
 inverted. Saved external edits continue to refresh the themed preview. The bundled eye favicon works offline.
+
+## Fonts and code copying
+
+The binary bundles Source Serif 4 for prose, Source Sans 3 for controls and Mermaid labels, Source Code Pro for
+code, and STIX Two Math for native Mermaid MathML. These fonts use the SIL Open Font License 1.1 and require no
+purchase or license fee. Local authenticated font routes keep viewing offline. The viewer waits for UI/math font
+loading and font readiness before fitting media and rendering diagrams. See [font provenance](../../web/fonts/README.md)
+and [third-party notices](../../THIRD_PARTY_NOTICES.md) for the exact files, hashes, copyrights, and licenses.
+
+A fenced code block’s top-right **Copy** button copies `code.textContent` exactly, including tabs, newlines, and
+escaped characters as displayed. Inline code and Mermaid fences have no copy button. Clipboard success shows
+**Copied**; unavailable or denied clipboard access shows **Copy failed**. Refresh replaces the controls with the
+current saved code; a pending result from an obsolete preview does not update the replacement.
+
+A local compatibility patch to pinned Mermaid 11.16.1 preserves explicitly authored ER class/node `fill` colors on
+all attribute rows. This prevents white labels on theme-generated white stripes when an author specifies a blue
+entity with white text. Named classes and direct styles keep their resolved precedence. Entities without an explicit
+fill retain the renderer’s normal theme stripes; unrelated diagrams are unchanged. Author-selected colors can still
+have poor contrast, so the viewer does not claim to repair arbitrary diagram palettes.
 
 ## Explorer and live updates
 

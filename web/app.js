@@ -14,12 +14,14 @@ export async function boot(host) {
     clearTimeout,
   } = host;
   const makeViewers = (state) =>
-    host.mediaViewers
-      ? host.mediaViewers(state, createThemeControl)
-      : mediaViewers(state, host, createThemeControl);
+    host.mediaViewers ? host.mediaViewers(state) : mediaViewers(state, host);
   const loadMermaid =
     host.loadMermaid ?? (() => import("./vendor/mermaid.esm.min.mjs"));
   const lifetime = new host.AbortController();
+  const fontsReady = Promise.all([
+    document.fonts?.load('16px "Source Sans 3"'),
+    document.fonts?.load('16px "STIX Two Math"'),
+  ]);
 
   const tree = document.querySelector("#tree");
   const panel = document.querySelector("#panel");
@@ -39,11 +41,6 @@ export async function boot(host) {
     document.documentElement.dataset.theme = theme;
     for (const control of document.querySelectorAll("[data-theme-control]"))
       control.textContent = theme === "dark" ? "Light mode" : "Dark mode";
-  }
-  function createThemeControl() {
-    const control = themeToggle.cloneNode(true);
-    control.removeAttribute("id");
-    return control;
   }
   applyTheme();
   const expanded = new Set([""]);
@@ -168,6 +165,45 @@ export async function boot(host) {
       mermaid.initialize({
         startOnLoad: false,
         securityLevel: "strict",
+        fontFamily: "Source Sans 3",
+        themeVariables: { fontFamily: "Source Sans 3" },
+        sequence: Object.fromEntries(
+          ["actor", "note", "message"].map((name) => [
+            `${name}FontFamily`,
+            "Source Sans 3",
+          ]),
+        ),
+        journey: {
+          taskFontFamily: "Source Sans 3",
+          titleFontFamily: "Source Sans 3",
+        },
+        timeline: { taskFontFamily: "Source Sans 3" },
+        c4: Object.fromEntries(
+          [
+            "person",
+            "external_person",
+            "system",
+            "external_system",
+            "system_db",
+            "external_system_db",
+            "system_queue",
+            "external_system_queue",
+            "boundary",
+            "message",
+            "container",
+            "external_container",
+            "container_db",
+            "external_container_db",
+            "container_queue",
+            "external_container_queue",
+            "component",
+            "external_component",
+            "component_db",
+            "external_component_db",
+            "component_queue",
+            "external_component_queue",
+          ].map((name) => [`${name}FontFamily`, "Source Sans 3"]),
+        ),
         theme: theme === "dark" ? "dark" : "default",
         suppressErrorRendering: true,
       });
@@ -223,6 +259,20 @@ export async function boot(host) {
       if (file.kind === "markdown") {
         const content = document.createElement("article");
         content.innerHTML = file.html;
+        for (const code of content.querySelectorAll("pre > code")) {
+          const pre = code.parentElement;
+          pre.classList.add("code-block");
+          const button = document.createElement("button");
+          button.type = "button";
+          button.dataset.copyCode = "";
+          button.className = "code-copy";
+          button.textContent = "Copy";
+          button.setAttribute("aria-label", "Copy code");
+          const feedback = document.createElement("span");
+          feedback.className = "code-copy-status";
+          feedback.setAttribute("role", "status");
+          pre.append(button, feedback);
+        }
         for (const link of content.querySelectorAll("a[href]")) {
           if (
             !link.hasAttribute("data-file") &&
@@ -269,6 +319,9 @@ export async function boot(host) {
       if (!keepMedia) mediaState = { items: new Map(), expanded: null };
       renderedFile = file.path;
       panel.replaceChildren(container);
+      await fontsReady;
+      await document.fonts?.ready;
+      if (disposed || revision !== generation) return;
       viewers = makeViewers(mediaState);
       for (const image of container.querySelectorAll("img"))
         viewers.image(image);
@@ -364,13 +417,9 @@ export async function boot(host) {
     });
   }
 
-  document.addEventListener(
+  themeToggle.addEventListener(
     "click",
-    async (event) => {
-      const control = event.target.closest?.("[data-theme-control]");
-      if (!control) return;
-      const restoreFocus =
-        control !== themeToggle && document.activeElement === control;
+    async () => {
       theme = theme === "dark" ? "light" : "dark";
       try {
         host.localStorage.setItem("media-glance.theme", theme);
@@ -378,12 +427,30 @@ export async function boot(host) {
         // Keep the explicit choice for this tab when persistence is denied.
       }
       applyTheme();
-      const revision = generation + 1;
       await display(true);
-      if (restoreFocus && !disposed && revision === generation)
-        document
-          .querySelector("dialog [data-theme-control]")
-          ?.focus({ preventScroll: true });
+    },
+    { signal: lifetime.signal },
+  );
+  document.addEventListener(
+    "click",
+    async (event) => {
+      const button = event.target.closest?.("[data-copy-code]");
+      if (!button) return;
+      const code = button.parentElement.querySelector(":scope > code");
+      const feedback = button.parentElement.querySelector("[role=status]");
+      const revision = generation;
+      button.disabled = true;
+      let result;
+      try {
+        await host.navigator.clipboard.writeText(code.textContent);
+        result = "Copied";
+      } catch {
+        result = "Copy failed";
+      }
+      if (!disposed && button.isConnected && revision === generation) {
+        feedback.textContent = result;
+        button.disabled = false;
+      }
     },
     { signal: lifetime.signal },
   );

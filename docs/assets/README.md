@@ -33,10 +33,16 @@ removes its temporary workspace. For an accessible step-by-step equivalent, use 
 
 ## Theme screenshots
 
-`dark-mode.png` and `light-mode.png` show the v0.1.2 candidate’s actual browser interface at 1180 × 900 pixels.
+`dark-mode.png` and `light-mode.png` show the v0.1.3 candidate’s actual browser interface at 1180 × 900 pixels.
 They use a temporary `example-notes` workspace with four invented files, a focused `notes/guide.md`, a three-node
 flowchart, and a simple local SVG.
 Only the page viewport is captured; address bars, URL tokens, user profiles, and desktop content are excluded.
 The dark screenshot follows the system preference; the light screenshot follows the visible **Light mode** control.
 Both use bundled Mermaid with corresponding diagram colors. The owned browser and server stop after capture,
 and the fixture validates registry and temporary-workspace cleanup. The older GIF above remains a v0.1.0 recording.
+
+`er-styles.png` shows two invented ER entities with explicit blue fills and white labels in light mode.
+`expanded-diagram.png` captures only that diagram’s actual expanded dialog, whose toolbar has media controls
+and no theme selector. `code-copy.png` shows two invented HTTP/JSON fences with top-right Copy controls.
+The same four-file temporary workspace is updated through real filesystem saves for these captures.
+All five screenshots use the v0.1.3 candidate’s bundled free fonts. The older GIF retains its original provenance.

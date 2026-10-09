@@ -31,6 +31,8 @@ All sample content is invented. See the [recording details](docs/assets/README.m
 
 [View the dark theme](docs/assets/dark-mode.png). The initial mode follows your system preference; the visible
 mode control lets you choose and remembers your choice. Both screenshots use invented test content.
+See the [styled ER diagram](docs/assets/er-styles.png), [expanded media](docs/assets/expanded-diagram.png),
+and [code copy controls](docs/assets/code-copy.png) from the same temporary workspace.
 
 ## Install
 
@@ -42,7 +44,7 @@ Add this [lazy.nvim](https://lazy.folke.io/spec) spec to your plugin configurati
 ```lua
 {
   "wahidyankf/media-glance",
-  tag = "v0.1.2",
+  tag = "v0.1.3",
   lazy = false,
   main = "media-glance",
   opts = {},
@@ -55,7 +57,7 @@ Install the plugin with your plugin manager, restart Neovim, then run:
 :MediaGlanceInstall
 ```
 
-The installer downloads the matching v0.1.2 binary for your platform, verifies its SHA-256 checksum and
+The installer downloads the matching v0.1.3 binary for your platform, verifies its SHA-256 checksum and
 version/protocol, and publishes it atomically in Neovim's cache. Installation is explicit: opening or listing
 previews never downloads or builds anything. See [installation and upgrades](docs/how-to/install-and-upgrade.md)
 for source builds and recovery from an interrupted installation.
@@ -110,6 +112,15 @@ The viewer starts with your system’s light or dark appearance. **Light mode** 
 the browser remembers your choice for that viewer origin. Diagrams follow the theme, and images keep their colors.
 HTTP/HTTPS document links open with a native new-tab target and no viewer referrer; browser preferences decide
 whether that target becomes a tab or window. A bundled eye icon identifies the viewer tab.
+
+Fenced code blocks have a **Copy** button at the top right. It copies the exact code, including tabs and newlines,
+and reports success or failure beside the button. Theme selection stays in the page header; expanded media has
+only its media controls.
+
+The viewer bundles free, open fonts under the SIL Open Font License: Source Serif 4 for prose, Source Sans 3 for
+controls and diagrams, Source Code Pro for code, and STIX Two Math for supported Mermaid math. No font purchase
+is required; all files load locally from the binary. [Font sources and licenses](web/fonts/README.md) record the
+immutable upstream files. Explicit ER diagram fills apply to every attribute row, retaining the author’s text colors.
 
 The sidebar loads folders as you expand them. Live updates watch the selected file, referenced local assets, and
 visible directories rather than recursively indexing the entire workspace. The explorer skips `.git`,
