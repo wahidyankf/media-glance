@@ -19,10 +19,17 @@ local M = {}
 ---@type MediaGlanceOptions
 local options = {}
 local function default_cache()
-  return vim.fs.joinpath(vim.fn.stdpath 'cache', 'media-glance')
+  local cache = vim.fn.stdpath 'cache'
+  assert(type(cache) == 'string', 'stdpath(cache) must return a string')
+  return vim.fs.joinpath(cache, 'media-glance')
 end
 local function state_directory()
-  return options.state_dir or vim.fs.joinpath(vim.fn.stdpath 'state', 'media-glance')
+  if options.state_dir then
+    return options.state_dir
+  end
+  local state = vim.fn.stdpath 'state'
+  assert(type(state) == 'string', 'stdpath(state) must return a string')
+  return vim.fs.joinpath(state, 'media-glance')
 end
 local startup_timeout_ms = 30000
 local job_id = nil

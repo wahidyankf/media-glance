@@ -22,6 +22,7 @@ local originals = {
   select = vim.ui.select,
   defer_fn = vim.defer_fn,
   schedule = vim.schedule,
+  stdpath = vim.fn.stdpath,
   install = require('media-glance.install').install,
 }
 local jobs, notices, queued, timers, lists, browser_urls = {}, {}, {}, {}, {}, {}
@@ -193,6 +194,32 @@ local function run()
   end
   path, failure = media.install()
   assert(path == '/verified/binary' and not failure, 'install success not returned')
+  vim.fn.stdpath = function()
+    return { root }
+  end
+  local installed, install_error = pcall(media.install)
+  assert(
+    not installed and tostring(install_error):find('stdpath(cache) must return a string', 1, true),
+    'invalid cache host path did not report its violated invariant'
+  )
+  media = fresh()
+  local listed, list_error = pcall(media.list)
+  assert(
+    not listed and tostring(list_error):find('stdpath(state) must return a string', 1, true),
+    'invalid state host path did not report its violated invariant'
+  )
+  local configured_state
+  local list_system = vim.system
+  vim.system = function(arguments, options, callback)
+    configured_state = arguments[4]
+    return list_system(arguments, options, callback)
+  end
+  media = fresh({ binary = '/bin/sh', state_dir = root .. '/configured-state' })
+  media.list()
+  flush()
+  assert(configured_state == root .. '/configured-state', 'configured state path was replaced by a host default')
+  vim.system = list_system
+  vim.fn.stdpath = originals.stdpath
   print 'media-glance failure scenarios: OK'
 end
 local ok, failure = xpcall(run, debug.traceback)
@@ -201,6 +228,7 @@ vim.system, vim.fn.jobstart, vim.fn.chansend, vim.fn.chanclose =
 vim.notify, vim.ui.open, vim.ui.select, vim.defer_fn, vim.schedule =
   originals.notify, originals.open, originals.select, originals.defer_fn, originals.schedule
 require('media-glance.install').install = originals.install
+vim.fn.stdpath = originals.stdpath
 package.loaded['telescope.actions'] = nil
 vim.bo.filetype = ''
 vim.fn.delete(root, 'rf')
