@@ -54,8 +54,16 @@ Keep platform configuration and personal workspace documents outside this reposi
   including symlink boundaries. Render untrusted Markdown and media without executing document scripts or raw HTML.
 - Publish no personal paths, credentials, workspace content, or private repository history. Retain the MIT license and
   third-party notices for bundled assets.
-- Never open or read private-key contents; when private-key or secret access is needed, hand the command to the user to
-  run in their own terminal, and record only local-development secret values (loopback services, examples like
-  `.env.example`).
+- Never open or read private-key contents anywhere, including outside every repository. Each secret step is exactly one
+  copy-ready command carrying its working directory, placed on the operator clipboard; the operator runs it in their
+  own terminal, entering each secret at a hidden prompt only, and replies with the success word the step names;
+  continue only on it. Never request, handle, or record secret values, full outputs, or screenshots, and avoid any
+  script or interaction that prints, echoes, logs, or otherwise exposes a secret to the session; diagnose by exit and
+  error codes alone; only local-development secrets (loopback services, dummy/example values such as `.env.example`)
+  may appear in records. Open the secret session only inside the phase that needs it and lock it before any review,
+  pause, or PR handoff. Allow agent-assisted delivery only with a proper pipeline and secrets management (tracked
+  wrapper, closed one-word outputs, leak screens, green gates); elsewhere stop at the secret boundary. Operate the
+  leak review only after reading every commit at the pinned head against the three leak classes; a record without
+  that reading is fabrication.
 - Write clear contributor-facing documentation with real, tested commands. Explain limitations and failed checks
   honestly; a partial or failing gate is not a passing result.
