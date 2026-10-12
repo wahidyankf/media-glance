@@ -40,5 +40,11 @@ check 'denies a Muse write to .env' 2 bash "$wrapper" agent-policy \
 	<<<"$(payload write_file '{"content":"x","path":".env"}')"
 check 'denies a Muse shell reference to .env' 2 bash "$wrapper" agent-policy \
 	<<<"$(payload bash '{"command":"cat .env"}')"
+check 'denies a Muse edit of .env' 2 bash "$wrapper" agent-policy \
+	<<<"$(payload edit_file '{"path":".env"}')"
+check 'denies a Muse write to .env.local' 2 bash "$wrapper" agent-policy \
+	<<<"$(payload write_file '{"content":"x","path":".env.local"}')"
+check 'allows a Muse read of .env.example' 0 bash "$wrapper" agent-policy \
+	<<<"$(payload read_file '{"path":".env.example"}')"
 if [[ $fail != 0 ]]; then exit 1; fi
 printf 'muse policy adapter: all cases pass\n'
