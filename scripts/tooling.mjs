@@ -335,9 +335,16 @@ export function dispatch(
       ],
       { env: { ...process.env, VIMRUNTIME: runtime } },
     );
-    exec("bash", ["-n", ".githooks/pre-push"]);
-    exec("shellcheck", [".githooks/pre-push"]);
-    exec("shfmt", ["-d", ".githooks/pre-push"]);
+    const shells = [
+      ".githooks/pre-push",
+      "scripts/agent-policy-hook.sh",
+      ".muse/hooks/run-policy-hook.sh",
+      ".muse/hooks/run-policy-hook.test.sh",
+    ];
+    exec("bash", [".muse/hooks/run-policy-hook.test.sh"]);
+    exec("bash", ["-n", ...shells]);
+    exec("shellcheck", shells);
+    exec("shfmt", ["-d", ...shells]);
     return;
   }
   if (command === "unit") {
