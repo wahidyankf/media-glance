@@ -11,6 +11,7 @@ Keep platform configuration and personal workspace documents outside this reposi
 - Keep changes focused and document public API, configuration, installation, and behavior changes in the same change.
 - Use the repository's native checks. Do not require an external governance catalog or resource scheduler to contribute.
 - Run `npm run setup` to configure the tracked hooks. Never bypass a failing pre-push hook.
+- Follow [Git delivery](docs/reference/git-delivery.md) for ongoing task authority, owned branch sync, and recovery.
 
 ## Checks and Coverage
 
