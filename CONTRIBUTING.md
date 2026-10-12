@@ -52,6 +52,13 @@ and JavaScript executable lines. Integration and end-to-end tests do not count t
 all authored production sources, including command entry points, installer, lifecycle, frontend, and build tooling.
 Only vendor, generated output, fixtures, and test code are excluded. Missing, stale, empty, or incomplete reports fail.
 
+## Agent harness policy
+
+The supported agent harness is `muse`. `.muse/hooks.json` sends every `PreToolUse` tool call through the
+`.muse` adapter to `scripts/agent-policy-hook.sh --harness muse`. Read, write, and shell inputs referencing
+a `.env` file are denied; other valid payloads are allowed and failures refuse the tool. Verify with
+`bash .muse/hooks/run-policy-hook.test.sh`; `check:fast` runs it.
+
 `check:fast` checks formatting and lint. `check:integration` runs the Go race and integration suites, isolated Neovim
 runtime tests, and a real Git fixture that proves the installed hook refuses failed coverage. Browser tests exercise
 focused files, Mermaid, independent media zoom, external writes, sidebar position, and stale navigation responses.
