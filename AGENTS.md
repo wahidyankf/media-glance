@@ -28,6 +28,13 @@ Keep platform configuration and personal workspace documents outside this reposi
   HTTP, filesystem, and browser tests for runtime interactions. Add a regression test for a behavior defect.
 - For lifecycle changes, verify cleanup of servers, streams, watchers, goroutines, file descriptors, and retained memory.
   Test fixtures must stop only their own processes and must never modify a contributor's live workspace.
+- During a TDD cycle, run only the check covering the current item to demonstrate Red and Green. Do not run the whole
+  automated suite except end-to-end tests to prove a single item.
+- At the end of each plan phase, and before pull request ready-for-review or session end as a safety net, run the whole
+  automated suite except full end-to-end tests, plus only the affected end-to-end flow. A full end-to-end run is never
+  a completion condition for plan execution or a plan phase; full end-to-end is batched through its scheduled workflow.
+  Keep local end-to-end runs selective to the touched flow.
+- Before starting plan execution or creating a new worktree, sync the execution checkout from the latest `origin/main`.
 
 ## Runtime Contract
 
