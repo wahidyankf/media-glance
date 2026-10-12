@@ -54,5 +54,8 @@ Keep platform configuration and personal workspace documents outside this reposi
   including symlink boundaries. Render untrusted Markdown and media without executing document scripts or raw HTML.
 - Publish no personal paths, credentials, workspace content, or private repository history. Retain the MIT license and
   third-party notices for bundled assets.
+- Never open or read private-key contents; when private-key or secret access is needed, hand the command to the user to
+  run in their own terminal, and record only local-development secret values (loopback services, examples like
+  `.env.example`).
 - Write clear contributor-facing documentation with real, tested commands. Explain limitations and failed checks
   honestly; a partial or failing gate is not a passing result.
