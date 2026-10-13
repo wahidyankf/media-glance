@@ -27,10 +27,22 @@ Keep platform configuration and personal workspace documents outside this reposi
   or add exclusions to make a gate pass.
 - Test behavior at its owning boundary. Use meaningful unit tests for decisions and error paths; use isolated host,
   HTTP, filesystem, and browser tests for runtime interactions. Add a regression test for a behavior defect.
-- For lifecycle changes, verify cleanup of servers, streams, watchers, goroutines, file descriptors, and retained memory.
-  Test fixtures must stop only their own processes and must never modify a contributor's live workspace.
+- For lifecycle changes, verify cleanup of servers, streams, watchers, goroutines, file descriptors, and retained
+  memory. Test fixtures must stop only their own processes and must never modify a contributor's live workspace.
 - During a TDD cycle, run only the check covering the current item to demonstrate Red and Green. Do not run the whole
   automated suite except end-to-end tests to prove a single item.
+- New/changed behaviour and bug fixes start from a failing test.
+- When a plan delivers work in batches (one pull request or delivery boundary at a time), the TDD cycle may run per
+  batch instead of per scenario, so planned work does not pay a full red-green ceremony for every scenario: write the
+  batch's tests first from its scenarios before any production change; run one focused RED run where every scenario's
+  test fails for its stated reason, grouped in one batch record, repairing any passing test before implementation;
+  implement the batch, then run the identical selection to GREEN with the selection frozen between RED and GREEN;
+  refactor inside the batch only while the selection is green, adding a behaviour change noticed along the way to the
+  batch's tests or its own cycle; run the full applicable regression and touched end-to-end flows only at the phase or
+  push boundary; do not repeat an accepted RED whose tests and production code are unchanged. A batch is one cohesive
+  behaviour slice sharing a boundary and fixtures; unrelated failures in one RED run mean the batch is too large, so
+  split it. Small single-scenario changes and single bug fixes keep the per-scenario cycle. This changes run and
+  evidence granularity only: it never permits writing tests after the code, and existing scope exemptions are unchanged.
 - At the end of each plan phase, and before pull request ready-for-review or session end as a safety net, run the whole
   automated suite except full end-to-end tests, plus only the affected end-to-end flow. A full end-to-end run is never
   a completion condition for plan execution or a plan phase; full end-to-end is batched through its scheduled workflow.
