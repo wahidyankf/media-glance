@@ -62,8 +62,11 @@ Keep platform configuration and personal workspace documents outside this reposi
   error codes alone; only local-development secrets (loopback services, dummy/example values such as `.env.example`)
   may appear in records. Open the secret session only inside the phase that needs it and lock it before any review,
   pause, or PR handoff. Allow agent-assisted delivery only with a proper pipeline and secrets management (tracked
-  wrapper, closed one-word outputs, leak screens, green gates); elsewhere stop at the secret boundary. Operate the
-  leak review only after reading every commit at the pinned head against the three leak classes; a record without
-  that reading is fabrication.
+  wrapper, closed one-word outputs, leak screens, green gates); elsewhere stop at the secret boundary. Delegate the
+  leak review's reading and judging to a fresh-context subagent with no part in authoring the change — read-only,
+  never posting — and post its verdict unchanged on behalf of the user, so no human reviewer is on the merge path.
+  Operate the leak review only after that subagent reads every commit at the pinned head against the three leak
+  classes; a self-judged record, or a record without that reading, is fabrication. A failed spawn blocks the
+  push or merge exactly as a finding does.
 - Write clear contributor-facing documentation with real, tested commands. Explain limitations and failed checks
   honestly; a partial or failing gate is not a passing result.
