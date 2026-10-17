@@ -1,0 +1,7 @@
+#!/usr/bin/env bash
+set -euo pipefail
+# Format and lint staged files before a commit is created.
+# The pre-push gate still runs fresh unit coverage and format/lint checks.
+repository_root="$(git rev-parse --show-toplevel)"
+cd "$repository_root"
+npx --no-install lint-staged

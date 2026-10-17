@@ -10,7 +10,9 @@ Keep platform configuration and personal workspace documents outside this reposi
   request, pass required CI, and merge to `main`. After merge, remove only clean task-owned worktrees and branches.
 - Keep changes focused and document public API, configuration, installation, and behavior changes in the same change.
 - Use the repository's native checks. Do not require an external governance catalog or resource scheduler to contribute.
-- Run `npm run setup` to configure the tracked hooks. Never bypass a failing pre-push hook.
+- Run `npm run setup` to configure the tracked Husky hooks in `.husky/`. The pre-commit hook formats and checks
+  staged files; every commit message must follow Conventional Commits (the commit-msg hook enforces it).
+  Never bypass a failing hook.
 - Follow [Git delivery](docs/reference/git-delivery.md) for ongoing task authority, owned branch sync, and recovery.
 
 ## Checks and Coverage

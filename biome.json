@@ -1,0 +1,70 @@
+{
+  "$schema": "https://biomejs.dev/schemas/2.5.15/schema.json",
+  "vcs": { "enabled": true, "clientKind": "git", "useIgnoreFile": true },
+  "files": { "ignoreUnknown": false },
+  "formatter": { "enabled": true, "indentStyle": "space" },
+  "linter": {
+    "enabled": true,
+    "rules": { "preset": "none" },
+    "includes": [
+      "**",
+      "!node_modules/**",
+      "!web/vendor/**",
+      "!build/**",
+      "!dist/**",
+      "!.coverage/**",
+      "!.deps/**",
+      "!test-results/**"
+    ]
+  },
+  "javascript": { "formatter": { "quoteStyle": "double" } },
+  "overrides": [
+    {
+      "includes": ["**/*.js", "**/*.mjs"],
+      "javascript": {
+        "globals": [
+          "setImmediate",
+          "console",
+          "globalThis",
+          "URLSearchParams",
+          "setTimeout",
+          "Buffer",
+          "process",
+          "URL",
+          "clearTimeout",
+          "window"
+        ]
+      },
+      "linter": {
+        "rules": {
+          "correctness": {
+            "noConstantCondition": "error",
+            "noInvalidConstructorSuper": "error",
+            "noSelfAssign": "error",
+            "noUndeclaredVariables": "error",
+            "noUnreachable": "error",
+            "noUnusedVariables": "error",
+            "useValidTypeof": "error"
+          },
+          "suspicious": {
+            "noDuplicateCase": "error",
+            "noDuplicateObjectKeys": "error",
+            "noDuplicateParameters": "error",
+            "noFunctionAssign": "error",
+            "noImportAssign": "error"
+          }
+        }
+      }
+    },
+    {
+      "includes": ["test/browser/journey.mjs"],
+      "javascript": {
+        "globals": ["document", "getComputedStyle", "innerWidth"]
+      }
+    }
+  ],
+  "assist": {
+    "enabled": true,
+    "actions": { "source": { "organizeImports": "on" } }
+  }
+}

@@ -1,16 +1,16 @@
 import assert from "node:assert/strict";
-import test from "node:test";
+import { spawnSync } from "node:child_process";
 import {
-  mkdtempSync,
-  mkdirSync,
-  writeFileSync,
-  readFileSync,
   cpSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
   rmSync,
+  writeFileSync,
 } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
-import { spawnSync } from "node:child_process";
+import test from "node:test";
 
 function command(name, args, cwd, env = process.env) {
   const result = spawnSync(name, args, { cwd, env, encoding: "utf8" });
@@ -26,14 +26,14 @@ test("installed pre-push hook refuses real local Git pushes for each runtime cov
     mkdirSync(repo);
     mkdirSync(bin);
     mkdirSync(join(repo, "scripts"));
-    mkdirSync(join(repo, ".githooks"));
+    mkdirSync(join(repo, ".husky"));
     try {
       command("git", ["init", "--bare", "--initial-branch=main", remote], root);
       command("git", ["init", "--initial-branch=main"], repo);
       command("git", ["config", "user.name", "Synthetic fixture"], repo);
       command("git", ["config", "user.email", "fixture@example.invalid"], repo);
       cpSync(resolve("scripts"), join(repo, "scripts"), { recursive: true });
-      cpSync(resolve(".githooks/pre-push"), join(repo, ".githooks/pre-push"));
+      cpSync(resolve(".husky/pre-push"), join(repo, ".husky/pre-push"));
       writeFileSync(join(repo, "README.md"), "Synthetic hook fixture.\n");
       command("git", ["add", "."], repo);
       command("git", ["commit", "-m", "Synthetic fixture"], repo);
@@ -41,7 +41,7 @@ test("installed pre-push hook refuses real local Git pushes for each runtime cov
       command(process.execPath, ["scripts/cli.mjs", "setup"], repo);
       assert.equal(
         command("git", ["config", "core.hooksPath"], repo),
-        ".githooks",
+        ".husky",
       );
       writeFileSync(
         join(bin, "npm"),
@@ -75,7 +75,7 @@ test("installed pre-push hook refuses real local Git pushes for each runtime cov
         /refs\/heads\/main/,
       );
       assert.match(
-        readFileSync(join(repo, ".githooks/pre-push"), "utf8"),
+        readFileSync(join(repo, ".husky/pre-push"), "utf8"),
         /set -euo pipefail/,
       );
     } finally {

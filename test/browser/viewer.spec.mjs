@@ -1,5 +1,5 @@
-import { test, expect } from "@playwright/test";
 import { resolve } from "node:path";
+import { expect, test } from "@playwright/test";
 import {
   captureMediaSnapshot,
   mediaFitReady,

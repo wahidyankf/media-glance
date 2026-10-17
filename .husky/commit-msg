@@ -1,0 +1,6 @@
+#!/usr/bin/env bash
+set -euo pipefail
+# Lint the commit message against Conventional Commits before it is stored.
+repository_root="$(git rev-parse --show-toplevel)"
+cd "$repository_root"
+npx --no-install commitlint --edit "$1"

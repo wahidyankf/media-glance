@@ -23,8 +23,12 @@ npm run build
 npm run browser:install
 ```
 
-`setup` enables the tracked pre-push hook through `core.hooksPath`. Before pushing, the hook runs fresh unit tests
-and the coverage gate, then format and lint checks. Never bypass it.
+`setup` enables the tracked hooks in `.husky` through `core.hooksPath`. Before committing, the pre-commit hook
+checks staged files with lint-staged (Biome for JavaScript, Prettier for documents, gofmt and `go mod edit`
+for Go, StyLua for Lua, shfmt for shell). Every commit message must follow Conventional Commits; the
+commit-msg hook lints it through commitlint (`commitlint.config.mjs` extends the conventional config).
+Before pushing, the pre-push hook runs
+fresh unit tests and the coverage gate, then format and lint checks. Never bypass them.
 
 `tools` explicitly downloads checksum-verified development tools into the ignored `.deps` directory:
 LuaCov 0.17.0, StyLua 2.5.2, and LuaLS 3.19.1. Checks do not download missing tools. They use Neovim's installed
