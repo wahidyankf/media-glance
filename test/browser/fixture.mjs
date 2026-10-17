@@ -1,16 +1,16 @@
 import { spawn } from "node:child_process";
 import { randomUUID } from "node:crypto";
 import { once } from "node:events";
-import { createServer } from "node:http";
 import {
-  mkdtemp,
   mkdir,
+  mkdtemp,
+  readdir,
   readFile,
   realpath,
-  readdir,
   rm,
   writeFile,
 } from "node:fs/promises";
+import { createServer } from "node:http";
 import { tmpdir } from "node:os";
 import { isAbsolute, join } from "node:path";
 import { createInterface } from "node:readline";

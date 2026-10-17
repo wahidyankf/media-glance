@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { validateFixture } from "../browser/journey.mjs";
+
 const valid = {
   type: "owned-media-viewer-browser-fixture",
   version: 1,

@@ -1,15 +1,16 @@
 import assert from "node:assert/strict";
-import test from "node:test";
 import {
-  mkdtempSync,
-  mkdirSync,
-  writeFileSync,
   existsSync,
+  mkdirSync,
+  mkdtempSync,
   rmSync,
+  writeFileSync,
 } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import test from "node:test";
 import { downloads, installTools, sha256 } from "../../scripts/tools.mjs";
+
 const body = Buffer.from("synthetic archive");
 const entries = [
   {

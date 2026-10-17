@@ -1,14 +1,14 @@
-import { checked } from "./command.mjs";
+import { spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import {
+  chmodSync,
   mkdirSync,
   mkdtempSync,
   readFileSync,
   rmSync,
-  chmodSync,
 } from "node:fs";
 import { join } from "node:path";
-import { spawnSync } from "node:child_process";
+import { checked } from "./command.mjs";
 
 export const manifests = {
   darwin_arm64: {
