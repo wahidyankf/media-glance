@@ -2,13 +2,11 @@ node_modules/
 build/
 dist/
 .coverage/
+.deps/
 web/vendor/
-*.go
-go.mod
-go.sum
-lua/
-test/lua/
-.githooks/
+worktrees/
+test-results/
+playwright-report/
 
 # Dependency license texts are preserved verbatim.
 THIRD_PARTY_NOTICES.md

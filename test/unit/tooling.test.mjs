@@ -1,24 +1,25 @@
 import assert from "node:assert/strict";
-import test from "node:test";
 import {
-  mkdtempSync,
   mkdirSync,
-  writeFileSync,
+  mkdtempSync,
   readFileSync,
   rmSync,
+  writeFileSync,
 } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import test from "node:test";
 import {
-  inventory,
-  checked,
-  vendor,
   build,
-  release,
   checkCoverage,
+  checked,
   dispatch,
+  inventory,
   main,
+  release,
+  vendor,
 } from "../../scripts/tooling.mjs";
+
 const ok = () => ({ status: 0, stdout: "" });
 function scratch(fn) {
   const dir = mkdtempSync(join(tmpdir(), "media-glance-unit-"));
@@ -332,6 +333,47 @@ test("gate commands run in order with fresh reports and propagate format or comm
         call.args.includes("-count=1"),
         `Go tests must bypass cached results: ${call.args.join(" ")}`,
       );
+    const unitGoTest = goTests.find((call) =>
+      call.args.includes("-coverprofile=.coverage/go.out"),
+    );
+    assert.ok(unitGoTest, "unit gate must record a Go coverage profile");
+    assert.ok(
+      !unitGoTest.args.includes("./..."),
+      "unit Go tests must not scan node_modules Go sources",
+    );
+    assert.ok(unitGoTest.args.includes("."));
+    assert.ok(unitGoTest.args.includes("./internal/..."));
+    assert.ok(
+      calls.some(
+        (call) =>
+          call.command === "npx" &&
+          call.args.includes("biome") &&
+          call.args.includes("ci"),
+      ),
+      "fast gate must check sources with biome ci",
+    );
+    assert.ok(
+      calls.some(
+        (call) =>
+          call.command === "bash" &&
+          call.args[0] === "-n" &&
+          call.args.includes(".husky/commit-msg"),
+      ),
+      "fast gate must syntax-check the commit-msg hook",
+    );
+    assert.ok(
+      !calls.some((call) => call.args.includes("eslint")),
+      "gates must not invoke eslint",
+    );
+    assert.ok(
+      calls.some(
+        (call) =>
+          call.command === "npx" &&
+          call.args.includes("prettier") &&
+          call.args.includes("**/*.{md,yml,yaml}"),
+      ),
+      "fast gate must check documents with prettier",
+    );
     assert.ok(calls.some((call) => call.args.includes("test/lua/unit.lua")));
     assert.throws(
       () =>

@@ -1,18 +1,20 @@
 import { checked } from "./command.mjs";
+
 export { checked } from "./command.mjs";
-import { installTools } from "./tools.mjs";
-import {
-  readFileSync,
-  writeFileSync,
-  readdirSync,
-  mkdirSync,
-  rmSync,
-  cpSync,
-  statSync,
-} from "node:fs";
-import { join, resolve, relative } from "node:path";
-import { createHash } from "node:crypto";
+
 import { spawnSync } from "node:child_process";
+import { createHash } from "node:crypto";
+import {
+  cpSync,
+  mkdirSync,
+  readdirSync,
+  readFileSync,
+  rmSync,
+  statSync,
+  writeFileSync,
+} from "node:fs";
+import { join, relative, resolve } from "node:path";
+import { installTools } from "./tools.mjs";
 
 export const version = "v0.1.3";
 export const targets = [
@@ -279,7 +281,7 @@ export function dispatch(
     checked(cmd, args, { cwd: root, ...opts }, run);
   if (command === "tools") return tools(root);
   if (command === "setup")
-    return exec("git", ["config", "core.hooksPath", ".githooks"]);
+    return exec("git", ["config", "core.hooksPath", ".husky"]);
   if (command === "vendor") return vendor(root);
   if (command === "build") {
     vendor(root);
@@ -291,8 +293,8 @@ export function dispatch(
     return release(root, run);
   }
   if (command === "fast") {
-    exec("npx", ["--no-install", "prettier", "--check", "."]);
-    exec("npx", ["--no-install", "eslint", "."]);
+    exec("npx", ["--no-install", "biome", "ci", "."]);
+    exec("npx", ["--no-install", "prettier", "--check", "**/*.{md,yml,yaml}"]);
     for (const file of [
       ...inventory(root, "web", /\.js$/),
       ...inventory(root, "scripts", /\.mjs$/),
@@ -336,7 +338,9 @@ export function dispatch(
       { env: { ...process.env, VIMRUNTIME: runtime } },
     );
     const shells = [
-      ".githooks/pre-push",
+      ".husky/pre-push",
+      ".husky/pre-commit",
+      ".husky/commit-msg",
       "scripts/agent-policy-hook.sh",
       ".muse/hooks/run-policy-hook.sh",
       ".muse/hooks/run-policy-hook.test.sh",
@@ -358,9 +362,10 @@ export function dispatch(
         "-count=1",
         "-p=2",
         "-parallel=2",
-        "-coverpkg=./...",
+        "-coverpkg=.,./internal/...",
         "-coverprofile=.coverage/go.out",
-        "./...",
+        ".",
+        "./internal/...",
       ],
       { env: { ...process.env, GOTOOLCHAIN: "go1.26.8" } },
     );
