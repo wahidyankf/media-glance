@@ -14,6 +14,8 @@ Keep platform configuration and personal workspace documents outside this reposi
   staged files; every commit message must follow Conventional Commits (the commit-msg hook enforces it).
   Never bypass a failing hook.
 - Follow [Git delivery](docs/reference/git-delivery.md) for ongoing task authority, owned branch sync, and recovery.
+- Remove the test containers, volumes, and networks a run leaked only by exact name, found through their compose label
+  `com.docker.compose.project.working_dir` under this checkout, and never with a blanket prune.
 
 ## Checks and Coverage
 
