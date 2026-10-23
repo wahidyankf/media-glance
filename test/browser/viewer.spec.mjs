@@ -471,12 +471,28 @@ test("code previews highlight Python, Go, and Markdown while copying exact sourc
     expect(stylesheet.status()).toBe(200);
     const code = page.locator("#panel pre > code");
     const python = 'def answer():\n\treturn "test"\n';
-    const codeBlock = page.locator("#panel pre");
-    await expect(code).toHaveCSS(
-      "font-size",
-      await codeBlock.evaluate((pre) => getComputedStyle(pre).fontSize),
-    );
-    await expect(code).toHaveCSS("background-color", "rgba(0, 0, 0, 0)");
+    // Live refresh can replace the preview between locator calls. Sample both
+    // connected elements together so a detached pre cannot supply an empty size.
+    await expect
+      .poll(() =>
+        page.evaluate(() => {
+          const current = document.querySelector("#panel pre > code");
+          const pre = current?.parentElement;
+          if (!current?.isConnected || !pre?.isConnected) return null;
+          const codeStyle = getComputedStyle(current);
+          const preStyle = getComputedStyle(pre);
+          return {
+            fontSizeInherited:
+              preStyle.fontSize !== "" &&
+              codeStyle.fontSize === preStyle.fontSize,
+            background: codeStyle.backgroundColor,
+          };
+        }),
+      )
+      .toEqual({
+        fontSizeInherited: true,
+        background: "rgba(0, 0, 0, 0)",
+      });
     await expect(code).toContainText(python.trim());
     await expect(code.locator("span").first()).toBeVisible();
     const darkToken = await code

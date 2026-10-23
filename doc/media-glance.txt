@@ -45,7 +45,7 @@ Options:
     cache_dir = vim.fn.stdpath('cache') .. '/media-glance',
   })
 <
-The default binary is cache_dir/v0.2.0/media-glance. Source builds must use the
+The default binary is cache_dir/v0.2.1/media-glance. Source builds must use the
 matching release protocol. Installation fills cache_dir even when binary has an
 override. A setup call replaces earlier options rather than merging them.
 Configure options before starting a server.

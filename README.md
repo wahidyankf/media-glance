@@ -48,7 +48,7 @@ Add this [lazy.nvim](https://lazy.folke.io/spec) spec to your plugin configurati
 ```lua
 {
   "wahidyankf/media-glance",
-  tag = "v0.2.0",
+  tag = "v0.2.1",
   lazy = false,
   main = "media-glance",
   opts = {},
@@ -61,7 +61,7 @@ Install the plugin with your plugin manager, restart Neovim, then run:
 :MediaGlanceInstall
 ```
 
-The installer downloads the matching v0.2.0 binary for your platform, verifies its SHA-256 checksum and
+The installer downloads the matching v0.2.1 binary for your platform, verifies its SHA-256 checksum and
 version/protocol, and publishes it atomically in Neovim's cache. Installation is explicit: opening or listing
 previews never downloads or builds anything. See [installation and upgrades](docs/how-to/install-and-upgrade.md)
 for source builds and recovery from an interrupted installation.
