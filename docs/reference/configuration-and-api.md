@@ -24,13 +24,15 @@ require("media-glance").setup({
 `binary`, `state_dir`, and `cache_dir` are optional strings. Use absolute paths for directory and executable
 overrides. The root must resolve to an existing directory. The default callback returns `vim.fn.getcwd(-1, -1)`.
 `root` must be callable and return a string; callback failures produce a notification. It does not run when
-reopening an already owned server. The default binary is `cache_dir/v0.1.3/media-glance` in this release.
+reopening an already owned server. The default binary is `cache_dir/v0.2.0/media-glance` in this release.
 
 A `setup` call replaces the option table; it does not merge with options from an earlier call. Configure before
 starting a server. Existing roots stay fixed, and changing registry options while a server is active can make list
 commands look in a different registry.
 
 There are no default mappings, port options, or automatic Git-root detection. Server selection uses `vim.ui.select`.
+The browser file-finder shortcut is **⌘K** on macOS and **Ctrl+K** on Windows/Linux; it does not add a Neovim mapping.
+See [viewer shortcuts](shortcuts.md).
 
 ## Commands and functions
 
@@ -57,17 +59,22 @@ file belongs to the selected root. Otherwise it falls back to root `README.md`, 
 
 ## Installed binary and protocol
 
-The installer targets binary release v0.1.3 and protocol 1. It executes
+The installer targets binary release v0.2.0 and protocol 1. It executes
 `version --json` and requires both
 values to match before publishing the binary. The CLI reports:
 
 ```json
-{ "version": "v0.1.3", "protocol": 1 }
+{ "version": "v0.2.0", "protocol": 1 }
 ```
 
 Readiness, list, and stop records use protocol version 1; the plugin validates their shapes and identity before
 acting on them. Configure a source-built binary from matching source rather than assuming an arbitrary executable
 is compatible. The CLI is the plugin's server boundary; contributor implementation details live in the source.
+
+The authenticated browser API returns `html` alongside `text` for source files when syntax highlighting succeeds;
+`text` remains the exact file content. `GET api/search?q=<query>` returns `{"entries":[{"name":"…","path":"…"}],
+"incomplete":false}`. Empty queries return an empty list, queries over 256 Unicode characters receive HTTP 400, and
+search returns at most 50 ranked results. Partial scans set `incomplete` to true.
 
 ## Timeouts
 

@@ -58,6 +58,7 @@
   --selected: #354d6c;
   --code: #26374a;
   --error: #ffa5ad;
+  --diagram-label-ink: #e0e8f2;
   font:
     16px / 1.65 "Source Serif 4",
     serif;
@@ -75,6 +76,7 @@
   --selected: #eaf1f8;
   --code: #f0f0ed;
   --error: #a12832;
+  --diagram-label-ink: #24292f;
 }
 * {
   box-sizing: border-box;
@@ -151,6 +153,106 @@ button {
 }
 .theme-toggle:hover {
   background: var(--selected);
+}
+.search-files,
+.finder-close {
+  min-height: 44px;
+  padding: 0.2rem 0.65rem;
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  background: var(--page);
+  font: inherit;
+  flex: none;
+}
+.search-files:hover,
+.finder-close:hover {
+  background: var(--selected);
+}
+.search-files kbd {
+  margin-left: 0.45rem;
+  color: var(--muted);
+  font:
+    12px / 1.4 "Source Sans 3",
+    sans-serif;
+}
+.finder-dialog {
+  width: min(44rem, calc(100vw - 2rem));
+  max-height: min(42rem, calc(100dvh - 2rem));
+  padding: 1.25rem;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--page);
+  color: var(--ink);
+  box-shadow: 0 1.5rem 4rem rgb(0 0 0 / 45%);
+  font:
+    14px / 1.5 "Source Sans 3",
+    sans-serif;
+}
+.finder-dialog::backdrop {
+  background: rgb(3 9 18 / 66%);
+}
+.finder-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+.finder-heading h2 {
+  margin: 0;
+  font-size: 1.2rem;
+}
+.finder-dialog label {
+  display: block;
+  margin-bottom: 0.35rem;
+  color: var(--muted);
+}
+.finder-dialog input {
+  display: block;
+  width: 100%;
+  min-height: 44px;
+  padding: 0.5rem 0.7rem;
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  background: var(--sidebar);
+  color: var(--ink);
+  font: inherit;
+}
+.finder-dialog p {
+  min-height: 1.5em;
+  margin: 0.55rem 0;
+  color: var(--muted);
+}
+.finder-dialog .error {
+  color: var(--error);
+}
+.finder-results {
+  max-height: min(24rem, 50vh);
+  overflow: auto;
+}
+.finder-result {
+  display: grid;
+  width: 100%;
+  gap: 0.1rem;
+  padding: 0.55rem 0.7rem;
+  border: 0;
+  border-radius: 3px;
+  background: transparent;
+  color: var(--ink);
+  text-align: left;
+}
+.finder-result[aria-selected="true"],
+.finder-result:hover {
+  background: var(--selected);
+}
+.finder-result-name {
+  font-weight: 600;
+}
+.finder-result-path {
+  color: var(--muted);
+  font-size: 0.9em;
+  overflow-wrap: anywhere;
 }
 .entry {
   display: block;
@@ -246,8 +348,37 @@ pre {
     13px / 1.5 "Source Sans 3",
     sans-serif;
 }
+.mermaid
+  svg
+  :is(
+    .nodeLabel,
+    .edgeLabel,
+    .cluster-label,
+    .titleText,
+    .labelText,
+    .messageText,
+    .actor,
+    text
+  ),
+.media-viewer
+  :is(
+    .nodeLabel,
+    .edgeLabel,
+    .cluster-label,
+    .titleText,
+    .labelText,
+    .messageText,
+    .actor,
+    text
+  ) {
+  font-family: "Source Sans 3", sans-serif;
+  font-weight: 600;
+}
 pre code {
   padding: 0;
+  border-radius: 0;
+  background: transparent;
+  font-size: inherit;
 }
 blockquote {
   margin-left: 0;
@@ -277,6 +408,18 @@ iframe {
   width: 100%;
   height: calc(100dvh - 12rem);
   border: 1px solid var(--border);
+}
+@media (max-width: 40rem) {
+  header {
+    gap: 0.5rem;
+    padding-inline: 0.65rem;
+  }
+  .search-files kbd {
+    display: none;
+  }
+  .document {
+    padding-inline: 1.25rem;
+  }
 }
 math {
   font-family: "STIX Two Math", math;

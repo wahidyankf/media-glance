@@ -6,7 +6,7 @@ import { mediaViewers } from "../../web/media.js";
 
 function fixture(files = {}, tree = []) {
   const dom = new JSDOM(
-    '<header><b id="workspace"></b><span id="status"></span><button id="theme-toggle" type="button">Light mode</button></header><nav><div id="tree"></div></nav><main id="panel"></main>',
+    '<header><b id="workspace"></b><span id="status"></span><button id="search-files" type="button">Search files</button><button id="theme-toggle" type="button">Light mode</button></header><dialog id="file-finder" aria-labelledby="file-finder-title"><h2 id="file-finder-title">Search files</h2><label for="file-finder-query">File name or path</label><input id="file-finder-query" type="search" aria-controls="file-finder-results" /><p id="file-finder-status" role="status"></p><div id="file-finder-results" role="listbox" aria-label="Files"></div><button id="file-finder-close" type="button">Close</button></dialog><nav><div id="tree"></div></nav><main id="panel"></main>',
     { url: "http://127.0.0.1:57300/v/token/?file=doc.md" },
   );
   const w = dom.window;
@@ -15,6 +15,7 @@ function fixture(files = {}, tree = []) {
   };
   w.HTMLDialogElement.prototype.showModal = function () {
     this.open = true;
+    this.querySelector("input")?.focus();
   };
   w.HTMLDialogElement.prototype.close = function () {
     this.open = false;
@@ -93,6 +94,12 @@ function fixture(files = {}, tree = []) {
     requests,
     streams,
     timers,
+    advanceTimers: async () => {
+      for (const fn of timers.splice(0)) {
+        fn();
+        await settle();
+      }
+    },
     get disconnects() {
       return disconnects;
     },
@@ -290,7 +297,7 @@ test("expanded media has no theme selector and preserves the header-selected mod
   const app = await boot(f.w);
   f.w.document.querySelector('[aria-label="Expand Example"]').click();
   assert.equal(
-    f.w.document.querySelector("dialog [data-theme-control]"),
+    f.w.document.querySelector(".media-dialog [data-theme-control]"),
     null,
     "expanded assets must not contain theme selection",
   );
@@ -298,9 +305,12 @@ test("expanded media has no theme selector and preserves the header-selected mod
   assert.equal(f.w.document.documentElement.dataset.theme, "light");
   await app.refresh();
   await settle();
-  assert.equal(f.w.document.querySelector("dialog [data-theme-control]"), null);
+  assert.equal(
+    f.w.document.querySelector(".media-dialog [data-theme-control]"),
+    null,
+  );
   assert.ok(
-    f.w.document.querySelector("dialog"),
+    f.w.document.querySelector(".media-dialog"),
     "live refresh preserves expanded media",
   );
   f.w.document.querySelector('[aria-label="Close expanded view"]').click();
@@ -308,10 +318,13 @@ test("expanded media has no theme selector and preserves the header-selected mod
   await settle();
   assert.equal(f.w.document.documentElement.dataset.theme, "dark");
   f.w.document.querySelector('[aria-label="Expand Example"]').click();
-  assert.equal(f.w.document.querySelector("dialog [data-theme-control]"), null);
+  assert.equal(
+    f.w.document.querySelector(".media-dialog [data-theme-control]"),
+    null,
+  );
   assert.equal(f.w.document.documentElement.dataset.theme, "dark");
   app.dispose();
-  assert.equal(f.w.document.querySelector("dialog"), null);
+  assert.equal(f.w.document.querySelector(".media-dialog"), null);
   f.dom.window.close();
 });
 
@@ -425,6 +438,8 @@ test("viewer waits for bundled UI/math fonts before fitting media or rendering M
       initialize(config) {
         assert.equal(config.fontFamily, "Source Sans 3");
         assert.equal(config.themeVariables.fontFamily, "Source Sans 3");
+        assert.match(config.themeCSS, /\.nodeLabel/);
+        assert.match(config.themeCSS, /font-weight:600/);
         assert.deepEqual(config.sequence, {
           actorFontFamily: "Source Sans 3",
           noteFontFamily: "Source Sans 3",
@@ -602,7 +617,10 @@ test("boot renders selected markdown, revises local assets, follows internal lin
     new f.w.MouseEvent("click", { bubbles: true, cancelable: true }),
   );
   await settle();
-  assert.equal(f.w.document.querySelector("pre").textContent, "literal <b>");
+  assert.equal(
+    f.w.document.querySelector("pre > code").textContent,
+    "literal <b>",
+  );
   f.w.history.replaceState(null, "", "?file=doc.md#top");
   f.w.dispatchEvent(new f.w.PopStateEvent("popstate"));
   await settle();
@@ -831,10 +849,10 @@ test("media controls change only media dimensions, clamp limits, preserve pan an
   button("Fit Example").click();
   assert.equal(viewport.scrollLeft, 0);
   button("Expand Example").click();
-  assert.ok(f.w.document.querySelector("dialog"));
+  assert.ok(f.w.document.querySelector(".media-dialog"));
   assert.ok(state.expanded);
   f.w.document
-    .querySelector("dialog")
+    .querySelector(".media-dialog")
     .dispatchEvent(new f.w.Event("cancel", { cancelable: true }));
   assert.equal(state.expanded, null);
   button("Expand Example").click();
@@ -880,7 +898,7 @@ test("SVG fallback, linked images, deferred loads, stale media and pruning clean
   );
   expand.click();
   f.w.document.querySelector('[aria-label="Expand Example"]').click();
-  assert.equal(f.w.document.querySelectorAll("dialog").length, 1);
+  assert.equal(f.w.document.querySelectorAll(".media-dialog").length, 1);
   viewers.dispose();
   loading.dispatchEvent(new f.w.Event("load"));
   f.dom.window.close();
@@ -1012,4 +1030,315 @@ test("disposing pending Mermaid imports and renders ignores late resolution and 
     app.dispose();
     f.dom.window.close();
   }
+});
+
+test("highlighted text renders trusted token markup and keeps exact source for copy", async () => {
+  const text = 'def answer():\n\treturn "test"\n';
+  const tokens =
+    '<span class="k">def</span> answer():\n\t<span class="k">return</span> <span class="s">"test"</span>\n';
+  const html = `<pre class="chroma"><code class="language-python">${tokens}</code></pre>`;
+  const f = fixture({
+    "doc.md": {
+      path: "doc.md",
+      kind: "text",
+      text,
+      html,
+      url: "api/raw?path=doc.md",
+    },
+  });
+  const copies = [];
+  Object.defineProperty(f.w.navigator, "clipboard", {
+    configurable: true,
+    value: {
+      async writeText(value) {
+        copies.push(value);
+      },
+    },
+  });
+  const app = await boot(f.w);
+  const code = f.w.document.querySelector("#panel pre > code");
+  assert.ok(code, "text previews use a code element for highlighted tokens");
+  assert.equal(code.parentElement.classList.contains("chroma"), true);
+  assert.equal(code.innerHTML, tokens);
+  assert.equal(code.textContent, text);
+  f.w.document.querySelector("[data-copy-code]").click();
+  await settle();
+  assert.deepEqual(copies, [text]);
+  app.dispose();
+  f.dom.window.close();
+});
+
+test("text without highlighted HTML stays escaped plaintext with exact whitespace", async () => {
+  const text = '<script>\n\tprint("plain")\n</script>\n';
+  const f = fixture({
+    "doc.md": {
+      path: "doc.md",
+      kind: "text",
+      text,
+      url: "api/raw?path=doc.md",
+    },
+  });
+  const app = await boot(f.w);
+  const code = f.w.document.querySelector("#panel pre > code");
+  assert.ok(code, "unhighlighted source remains a code block");
+  assert.equal(code.textContent, text);
+  assert.equal(code.querySelector("script"), null);
+  app.dispose();
+  f.dom.window.close();
+});
+
+test("Cmd+K, Ctrl+K, and the visible trigger open the finder and focus its query", async () => {
+  for (const open of [
+    (document) =>
+      document.dispatchEvent(
+        new document.defaultView.KeyboardEvent("keydown", {
+          key: "k",
+          metaKey: true,
+          bubbles: true,
+          cancelable: true,
+        }),
+      ),
+    (document) =>
+      document.dispatchEvent(
+        new document.defaultView.KeyboardEvent("keydown", {
+          key: "k",
+          ctrlKey: true,
+          bubbles: true,
+          cancelable: true,
+        }),
+      ),
+    (document) => document.querySelector("#search-files").click(),
+  ]) {
+    const f = fixture({ "doc.md": markdown("Finder fixture") });
+    const app = await boot(f.w);
+    open(f.w.document);
+    const dialog = f.w.document.querySelector("#file-finder");
+    assert.equal(dialog.open, true);
+    assert.equal(
+      f.w.document.activeElement,
+      f.w.document.querySelector("#file-finder-query"),
+    );
+    f.w.document.querySelector("#file-finder-close").click();
+    app.dispose();
+    f.dom.window.close();
+  }
+});
+
+test("finder prompts on an empty query, reports partial matches, and navigates by keyboard", async () => {
+  const f = fixture({
+    "doc.md": markdown("Finder fixture"),
+    "hidden-folder/deep.py": {
+      path: "hidden-folder/deep.py",
+      kind: "text",
+      text: "print('found')\n",
+      url: "api/raw?path=hidden-folder/deep.py",
+    },
+  });
+  const requests = [];
+  const originalFetch = f.w.fetch;
+  f.w.fetch = async (route, options) => {
+    if (route.startsWith("api/search?")) {
+      requests.push({ route, signal: options.signal });
+      return {
+        ok: true,
+        json: async () => ({
+          entries: [{ name: "deep.py", path: "hidden-folder/deep.py" }],
+          incomplete: true,
+        }),
+      };
+    }
+    return originalFetch(route, options);
+  };
+  const app = await boot(f.w);
+  f.w.document.querySelector("#search-files").click();
+  const status = f.w.document.querySelector("#file-finder-status");
+  assert.match(status.textContent, /type/i);
+  const input = f.w.document.querySelector("#file-finder-query");
+  input.value = "x".repeat(257);
+  input.dispatchEvent(new f.w.Event("input", { bubbles: true }));
+  await f.advanceTimers();
+  assert.match(status.textContent, /256/);
+  assert.equal(
+    requests.length,
+    0,
+    "overlong searches are rejected before fetch",
+  );
+  input.value = "😀".repeat(256);
+  input.dispatchEvent(new f.w.Event("input", { bubbles: true }));
+  await f.advanceTimers();
+  assert.equal(requests.length, 1, "256 Unicode runes fit the server limit");
+  assert.equal(
+    new URL(requests[0].route, f.w.location.href).searchParams.get("q"),
+    "😀".repeat(256),
+  );
+  input.value = "😀".repeat(257);
+  input.dispatchEvent(new f.w.Event("input", { bubbles: true }));
+  await f.advanceTimers();
+  assert.match(status.textContent, /256/);
+  assert.equal(requests.length, 1, "257 Unicode runes are rejected");
+  input.value = "deep";
+  input.dispatchEvent(new f.w.Event("input", { bubbles: true }));
+  await f.advanceTimers();
+  assert.equal(requests.length, 2);
+  assert.equal(
+    new URL(requests[1].route, f.w.location.href).searchParams.get("q"),
+    "deep",
+  );
+  const result = f.w.document.querySelector('[role="option"]');
+  assert.match(result.textContent, /deep\.py/);
+  assert.match(status.textContent, /incomplete|partial/i);
+  input.dispatchEvent(
+    new f.w.KeyboardEvent("keydown", { key: "ArrowDown", bubbles: true }),
+  );
+  input.dispatchEvent(
+    new f.w.KeyboardEvent("keydown", { key: "Enter", bubbles: true }),
+  );
+  await settle();
+  assert.equal(f.w.location.search, "?file=hidden-folder%2Fdeep.py");
+  assert.equal(f.w.document.querySelector("#file-finder").open, false);
+  app.dispose();
+  f.dom.window.close();
+});
+
+test("finder debounces and ignores an obsolete response, while errors stay in the dialog", async () => {
+  let releaseOld;
+  const f = fixture({ "doc.md": markdown("Finder fixture") });
+  const originalFetch = f.w.fetch;
+  const calls = [];
+  f.w.fetch = async (route, options) => {
+    if (!route.startsWith("api/search?")) return originalFetch(route, options);
+    const query = new URL(route, f.w.location.href).searchParams.get("q");
+    calls.push({ query, signal: options.signal });
+    if (query === "old")
+      return new Promise((resolve) => {
+        releaseOld = () =>
+          resolve({
+            ok: true,
+            json: async () => ({
+              entries: [{ name: "old.py", path: "old.py" }],
+              incomplete: false,
+            }),
+          });
+      });
+    if (query === "missing")
+      return {
+        ok: true,
+        json: async () => ({ entries: [], incomplete: false }),
+      };
+    if (query === "failure")
+      return { ok: false, text: async () => "search denied" };
+    return {
+      ok: true,
+      json: async () => ({
+        entries: [{ name: "new.go", path: "new.go" }],
+        incomplete: false,
+      }),
+    };
+  };
+  const app = await boot(f.w);
+  f.w.document.querySelector("#search-files").click();
+  const input = f.w.document.querySelector("#file-finder-query");
+  input.value = "old";
+  input.dispatchEvent(new f.w.Event("input", { bubbles: true }));
+  assert.equal(calls.length, 0, "the finder waits for the 150 ms debounce");
+  await f.advanceTimers();
+  assert.equal(calls.length, 1);
+  input.value = "new";
+  input.dispatchEvent(new f.w.Event("input", { bubbles: true }));
+  await f.advanceTimers();
+  assert.equal(calls[0].signal.aborted, true);
+  releaseOld();
+  await settle();
+  assert.equal(
+    f.w.document.querySelector('[role="option"]').textContent,
+    "new.go",
+  );
+  input.value = "missing";
+  input.dispatchEvent(new f.w.Event("input", { bubbles: true }));
+  await f.advanceTimers();
+  assert.match(
+    f.w.document.querySelector("#file-finder-status").textContent,
+    /no matching/i,
+  );
+  assert.equal(f.w.document.querySelectorAll('[role="option"]').length, 0);
+  input.value = "failure";
+  input.dispatchEvent(new f.w.Event("input", { bubbles: true }));
+  await f.advanceTimers();
+  assert.match(
+    f.w.document.querySelector("#file-finder-status").textContent,
+    /search denied/,
+  );
+  app.dispose();
+  f.dom.window.close();
+});
+
+test("Enter on a finder control does not activate the query selection", async () => {
+  const f = fixture({
+    "doc.md": markdown("Finder fixture"),
+    "alpha.py": {
+      path: "alpha.py",
+      kind: "text",
+      text: 'print("alpha")\n',
+      url: "api/raw?path=alpha.py",
+    },
+  });
+  const originalFetch = f.w.fetch;
+  f.w.fetch = async (route, options) => {
+    if (route.startsWith("api/search?"))
+      return {
+        ok: true,
+        json: async () => ({
+          entries: [{ name: "alpha.py", path: "alpha.py" }],
+          incomplete: false,
+        }),
+      };
+    return originalFetch(route, options);
+  };
+  const app = await boot(f.w);
+  const originalSearch = f.w.location.search;
+  f.w.document.querySelector("#search-files").click();
+  const input = f.w.document.querySelector("#file-finder-query");
+  input.value = "alpha";
+  input.dispatchEvent(new f.w.Event("input", { bubbles: true }));
+  await f.advanceTimers();
+  await settle();
+  const close = f.w.document.querySelector("#file-finder-close");
+  close.focus();
+  close.dispatchEvent(
+    new f.w.KeyboardEvent("keydown", {
+      key: "Enter",
+      bubbles: true,
+      cancelable: true,
+    }),
+  );
+  await settle();
+  assert.equal(
+    f.w.document.querySelector("#file-finder").open,
+    true,
+    "the document handler leaves focused dialog controls to their native action",
+  );
+  assert.equal(f.w.location.search, originalSearch);
+  app.dispose();
+  f.dom.window.close();
+});
+
+test("Escape closes the finder and restores focus to its opener", async () => {
+  const f = fixture({ "doc.md": markdown("Finder fixture") });
+  const opener = f.w.document.querySelector("#search-files");
+  const app = await boot(f.w);
+  opener.focus();
+  opener.click();
+  const dialog = f.w.document.querySelector("#file-finder");
+  assert.equal(dialog.open, true, "the visible trigger opens the dialog");
+  dialog.dispatchEvent(
+    new f.w.KeyboardEvent("keydown", {
+      key: "Escape",
+      bubbles: true,
+      cancelable: true,
+    }),
+  );
+  assert.equal(dialog.open, false);
+  assert.equal(f.w.document.activeElement, opener);
+  app.dispose();
+  f.dom.window.close();
 });

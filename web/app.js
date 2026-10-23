@@ -1,3 +1,4 @@
+import { createFileFinder } from "./finder.js";
 import { mediaViewers } from "./media.js";
 
 export async function boot(host) {
@@ -20,6 +21,7 @@ export async function boot(host) {
   const lifetime = new host.AbortController();
   const fontsReady = Promise.all([
     document.fonts?.load('16px "Source Sans 3"'),
+    document.fonts?.load('600 16px "Source Sans 3"'),
     document.fonts?.load('16px "STIX Two Math"'),
   ]);
 
@@ -74,6 +76,25 @@ export async function boot(host) {
     paragraph.textContent = text;
     if (error) paragraph.className = "error";
     return paragraph;
+  }
+
+  function addCopyAction(pre) {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.dataset.copyCode = "";
+    button.className = "code-copy";
+    button.textContent = "Copy";
+    button.setAttribute("aria-label", "Copy code");
+    const feedback = document.createElement("span");
+    feedback.className = "code-copy-status";
+    feedback.setAttribute("role", "status");
+    pre.classList.add("code-block");
+    pre.append(button, feedback);
+  }
+
+  function addCopyActions(container) {
+    for (const code of container.querySelectorAll("pre > code"))
+      addCopyAction(code.parentElement);
   }
 
   async function directory(path, container) {
@@ -166,7 +187,15 @@ export async function boot(host) {
         startOnLoad: false,
         securityLevel: "strict",
         fontFamily: "Source Sans 3",
-        themeVariables: { fontFamily: "Source Sans 3" },
+        themeVariables: {
+          fontFamily: "Source Sans 3",
+          primaryTextColor: theme === "dark" ? "#e0e8f2" : "#24292f",
+          secondaryTextColor: theme === "dark" ? "#e0e8f2" : "#24292f",
+          tertiaryTextColor: theme === "dark" ? "#e0e8f2" : "#24292f",
+          textColor: theme === "dark" ? "#e0e8f2" : "#24292f",
+        },
+        themeCSS:
+          ".nodeLabel,.edgeLabel,.cluster-label,.titleText,.labelText,.messageText,.actor,text{font-family:'Source Sans 3',sans-serif;font-weight:600}",
         sequence: Object.fromEntries(
           ["actor", "note", "message"].map((name) => [
             `${name}FontFamily`,
@@ -259,20 +288,7 @@ export async function boot(host) {
       if (file.kind === "markdown") {
         const content = document.createElement("article");
         content.innerHTML = file.html;
-        for (const code of content.querySelectorAll("pre > code")) {
-          const pre = code.parentElement;
-          pre.classList.add("code-block");
-          const button = document.createElement("button");
-          button.type = "button";
-          button.dataset.copyCode = "";
-          button.className = "code-copy";
-          button.textContent = "Copy";
-          button.setAttribute("aria-label", "Copy code");
-          const feedback = document.createElement("span");
-          feedback.className = "code-copy-status";
-          feedback.setAttribute("role", "status");
-          pre.append(button, feedback);
-        }
+        addCopyActions(content);
         for (const link of content.querySelectorAll("a[href]")) {
           if (
             !link.hasAttribute("data-file") &&
@@ -292,9 +308,33 @@ export async function boot(host) {
         }
         container.append(content);
       } else if (file.kind === "text") {
-        const pre = document.createElement("pre");
-        pre.textContent = file.text ?? "";
-        container.append(pre);
+        let highlighted;
+        if (typeof file.html === "string" && file.html) {
+          const template = document.createElement("template");
+          template.innerHTML = file.html;
+          const pre = template.content.firstElementChild;
+          const code = pre?.matches("pre")
+            ? pre.querySelector(":scope > code")
+            : null;
+          if (
+            template.content.children.length === 1 &&
+            pre?.matches("pre") &&
+            code &&
+            code.textContent === (file.text ?? "")
+          ) {
+            addCopyAction(pre);
+            container.append(template.content);
+            highlighted = true;
+          }
+        }
+        if (!highlighted) {
+          const pre = document.createElement("pre");
+          const code = document.createElement("code");
+          code.textContent = file.text ?? "";
+          pre.append(code);
+          addCopyAction(pre);
+          container.append(pre);
+        }
       } else if (["image", "pdf", "audio", "video"].includes(file.kind)) {
         const element = document.createElement(
           { image: "img", pdf: "iframe", audio: "audio", video: "video" }[
@@ -357,6 +397,16 @@ export async function boot(host) {
     await Promise.all([display(false, anchor), refreshTree(true)]);
     subscribe();
   }
+
+  const finder = createFileFinder({
+    document,
+    fetch,
+    navigate,
+    setTimeout,
+    clearTimeout,
+    AbortController: host.AbortController,
+    signal: lifetime.signal,
+  });
 
   async function refresh() {
     if (disposed) return;
@@ -487,6 +537,7 @@ export async function boot(host) {
   function dispose() {
     if (disposed) return;
     disposed = true;
+    finder.dispose();
     lifetime.abort();
     generation++;
     treeRevision++;
