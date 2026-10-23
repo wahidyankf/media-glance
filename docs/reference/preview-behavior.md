@@ -12,17 +12,23 @@ buffer contents do not enter the preview.
 | PDF                                                 | Embedded browser PDF view.                    |
 | MP3, WAV, OGG, M4A, FLAC                            | Browser audio controls.                       |
 | MP4, WebM, MOV, M4V                                 | Browser video controls.                       |
-| Other UTF-8 files without NUL bytes, up to 2 MiB    | Plain text preview.                           |
+| Other UTF-8 files without NUL bytes, up to 2 MiB    | Text preview, highlighted when recognized.    |
 | Larger text/Markdown, binary data, or invalid UTF-8 | Download view.                                |
 
 Markdown supports tables, strikethrough, task lists, headings, links, images, and code fences.
+Recognized source files and fenced code use syntax highlighting. Highlighted text preserves the original characters,
+including CRLF line endings.
+Unknown languages and failed highlighting stay plain text. Files over 128 KiB and Markdown fences beyond the shared
+128 KiB per-document highlighting budget also stay plain text. Invalid UTF-8 remains a download view as listed
+above.
 
 Extensions match case-insensitively. Browser support determines whether a listed image, PDF, audio, or video format
 can actually decode. Image/media formats do not use the 2 MiB text-preview limit. Raw files stream from the server
 with HTTP range support; a supported extension does not guarantee a browser codec.
 
-A fenced `mermaid` block renders through bundled Mermaid. Mathematical labels use the Mermaid renderer's supported
-syntax; ordinary Markdown has no independent math renderer. Raw Markdown HTML is escaped rather than executed.
+A fenced `mermaid` block renders through bundled Mermaid with stronger label weight for readability. Mathematical
+labels use the Mermaid renderer's supported syntax; ordinary Markdown has no independent math renderer. Raw Markdown
+HTML is escaped rather than executed.
 HTML files preview as text when they meet the text rules, and their raw route serves them as plain text.
 
 ## Links and images
@@ -62,6 +68,11 @@ Theme changes re-render Mermaid with matching colors while
 preserving the selected file, explorer and document scroll, zoom, media pan, and expanded view. Images are not
 inverted. Saved external edits continue to refresh the themed preview. The bundled eye favicon works offline.
 
+Mermaid labels use semibold (600) text for readability in both themes. Explicitly authored label colors and font
+weights retain precedence. A local compatibility patch to pinned Mermaid 11.16.1 preserves explicitly authored ER
+class/node `fill` colors on all attribute rows. Entities without an explicit fill retain the renderer’s normal theme
+stripes; unrelated diagrams are unchanged. Author-selected colors can still have poor contrast.
+
 ## Fonts and code copying
 
 The binary bundles Source Serif 4 for prose, Source Sans 3 for controls and Mermaid labels, Source Code Pro for
@@ -70,16 +81,19 @@ purchase or license fee. Local authenticated font routes keep viewing offline. T
 loading and font readiness before fitting media and rendering diagrams. See [font provenance](../../web/fonts/README.md)
 and [third-party notices](../../THIRD_PARTY_NOTICES.md) for the exact files, hashes, copyrights, and licenses.
 
-A fenced code block’s top-right **Copy** button copies `code.textContent` exactly, including tabs, newlines, and
-escaped characters as displayed. Inline code and Mermaid fences have no copy button. Clipboard success shows
-**Copied**; unavailable or denied clipboard access shows **Copy failed**. Refresh replaces the controls with the
-current saved code; a pending result from an obsolete preview does not update the replacement.
+The top-right **Copy** button on source text and fenced code copies `code.textContent` exactly, including tabs,
+LF or CRLF line endings, and escaped characters as displayed. Inline code and Mermaid fences have no copy button.
+Clipboard success shows **Copied**; unavailable or denied clipboard access shows **Copy failed**. Refresh replaces the
+controls with the current saved code; a pending result from an obsolete preview does not update the replacement.
 
-A local compatibility patch to pinned Mermaid 11.16.1 preserves explicitly authored ER class/node `fill` colors on
-all attribute rows. This prevents white labels on theme-generated white stripes when an author specifies a blue
-entity with white text. Named classes and direct styles keep their resolved precedence. Entities without an explicit
-fill retain the renderer’s normal theme stripes; unrelated diagrams are unchanged. Author-selected colors can still
-have poor contrast, so the viewer does not claim to repair arbitrary diagram palettes.
+## Find files
+
+Press **⌘K** on macOS or **Ctrl+K** on Windows/Linux to open the file finder. Type a filename or relative path;
+results rank exact and partial basename matches before path matches. Use Up/Down to select a result, Enter to open
+it, and Escape to close the dialog and return focus. Search scans at most 50,000 entries, 64 directory levels, or
+two seconds, and shows up to 50 results. A partial-result message means the scan reached one of those limits or
+found more matches than it can show.
+Search skips `.git`, `node_modules`, `.cache`, and `worktrees`, like the explorer.
 
 ## Explorer and live updates
 

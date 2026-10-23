@@ -6,16 +6,57 @@
     <title>media-glance.nvim</title>
     <link rel="icon" type="image/svg+xml" href="favicon.svg" />
     <link rel="stylesheet" href="style.css" />
+    <link rel="stylesheet" href="syntax.css" />
     <script type="module" src="start.js"></script>
   </head>
   <body>
     <header>
       <strong id="workspace">media-glance.nvim</strong
       ><span id="status" role="status">Connecting…</span>
+      <button
+        id="search-files"
+        class="search-files"
+        type="button"
+        aria-label="Search files"
+        aria-haspopup="dialog"
+        aria-controls="file-finder"
+      >
+        Search files <kbd aria-hidden="true">⌘K / Ctrl+K</kbd>
+      </button>
       <button id="theme-toggle" class="theme-toggle" type="button">
         Light mode
       </button>
     </header>
+    <dialog
+      id="file-finder"
+      class="finder-dialog"
+      aria-labelledby="file-finder-title"
+      aria-describedby="file-finder-status"
+    >
+      <div class="finder-heading">
+        <h2 id="file-finder-title">Search files</h2>
+        <button id="file-finder-close" class="finder-close" type="button">
+          Close
+        </button>
+      </div>
+      <label for="file-finder-query">File name or path</label>
+      <input
+        id="file-finder-query"
+        type="search"
+        autocomplete="off"
+        spellcheck="false"
+        aria-controls="file-finder-results"
+      />
+      <p id="file-finder-status" role="status" aria-live="polite">
+        Type to search files.
+      </p>
+      <div
+        id="file-finder-results"
+        class="finder-results"
+        role="listbox"
+        aria-label="Files"
+      ></div>
+    </dialog>
     <div class="layout">
       <nav aria-label="Workspace files"><div id="tree"></div></nav>
       <main id="panel" tabindex="-1">

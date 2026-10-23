@@ -9,17 +9,20 @@ or Go toolchain.
 
 ## Demo
 
-![Markdown preview, Mermaid zoom and expanded view, live external update, and a local image](docs/assets/demo.gif)
+![Search for a file, copy highlighted Python, and expand a Mermaid diagram](docs/assets/demo.gif)
 
-The demo opens the selected document beside its explorer, enlarges the Mermaid diagram, and closes its expanded
-view. Another process saves the document; the preview updates automatically. A local SVG then opens in the viewer.
-All sample content is invented. See the [recording details](docs/assets/README.md) or follow the
+The demo searches for a Python file, copies its highlighted source, then expands a Mermaid diagram and switches to
+light mode. All sample content is invented. See the [recording details](docs/assets/README.md) or follow the
 [first-preview tutorial](docs/tutorials/preview-your-first-document.md) at your own pace.
 
 ## Highlights
 
 - 🎯 **Start with the file you are editing.** Open your current saved file and reveal it in the explorer sidebar.
 - 📄 **Read rich documents.** Render Markdown tables, task lists, local images, links, and Mermaid diagrams.
+- 🎨 **Read code comfortably.** Recognized source files and fenced code use syntax highlighting, with plain-text
+  fallback for unknown or oversized files.
+- 🔍 **Find files quickly.** Press **⌘K** on macOS or **Ctrl+K** on Windows/Linux to search filenames and paths,
+  including files in collapsed folders.
 - 🔎 **Enlarge the media, keep the text size.** Zoom each image or diagram, fit it, or open an expanded view.
 - 🔄 **See changes from outside Neovim.** Saved and atomic file replacements refresh the preview.
 - 🧩 **Keep sessions independent.** Each Neovim session owns its server; exiting the editor stops it. Pick a running
@@ -30,9 +33,10 @@ All sample content is invented. See the [recording details](docs/assets/README.m
 ![Light theme with a focused synthetic Markdown file and Mermaid diagram](docs/assets/light-mode.png)
 
 [View the dark theme](docs/assets/dark-mode.png). The initial mode follows your system preference; the visible
-mode control lets you choose and remembers your choice. Both screenshots use invented test content.
-See the [styled ER diagram](docs/assets/er-styles.png), [expanded media](docs/assets/expanded-diagram.png),
-and [code copy controls](docs/assets/code-copy.png) from the same temporary workspace.
+mode control lets you choose and remembers your choice. The light/dark images, [file finder](docs/assets/file-finder.png),
+[expanded diagram](docs/assets/expanded-diagram.png), and [syntax-highlighted code with copy confirmation](docs/assets/code-copy.png)
+use invented content from one small temporary workspace. The [styled ER diagram](docs/assets/er-styles.png) remains
+an earlier example.
 
 ## Install
 
@@ -44,7 +48,7 @@ Add this [lazy.nvim](https://lazy.folke.io/spec) spec to your plugin configurati
 ```lua
 {
   "wahidyankf/media-glance",
-  tag = "v0.1.3",
+  tag = "v0.2.0",
   lazy = false,
   main = "media-glance",
   opts = {},
@@ -57,7 +61,7 @@ Install the plugin with your plugin manager, restart Neovim, then run:
 :MediaGlanceInstall
 ```
 
-The installer downloads the matching v0.1.3 binary for your platform, verifies its SHA-256 checksum and
+The installer downloads the matching v0.2.0 binary for your platform, verifies its SHA-256 checksum and
 version/protocol, and publishes it atomically in Neovim's cache. Installation is explicit: opening or listing
 previews never downloads or builds anything. See [installation and upgrades](docs/how-to/install-and-upgrade.md)
 for source builds and recovery from an interrupted installation.
@@ -84,7 +88,7 @@ With common picker providers, Enter confirms and Escape cancels. Server pickers 
 UI provider can supply the picker. Both open and close lists show the workspace, owner PID, `[this session]` when
 applicable, and the port at the end: `/workspace/notes | owner 1234 [this session] | :57300`.
 Fuzzy search depends on that provider: Telescope's `ui-select` extension lets you type a workspace or port to filter;
-Neovim's native selector does not provide fuzzy search. The plugin creates no default keybindings.
+Neovim's native selector does not provide fuzzy search. The plugin creates no default Neovim mappings.
 For example, add these mappings after plugin setup:
 
 ```lua
@@ -113,9 +117,14 @@ the browser remembers your choice for that viewer origin. Diagrams follow the th
 HTTP/HTTPS document links open with a native new-tab target and no viewer referrer; browser preferences decide
 whether that target becomes a tab or window. A bundled eye icon identifies the viewer tab.
 
-Fenced code blocks have a **Copy** button at the top right. It copies the exact code, including tabs and newlines,
-and reports success or failure beside the button. Theme selection stays in the page header; expanded media has
-only its media controls.
+Fenced code blocks and recognized source files have syntax highlighting and a **Copy** button. Copy preserves the
+exact source, including tabs and newlines, and reports success or failure beside the button. Unknown languages and
+oversized files remain plain text. The browser file finder opens with **⌘K** on macOS or **Ctrl+K** on
+Windows/Linux; it searches names and relative paths in collapsed folders too. These browser shortcuts do not add
+Neovim mappings. Theme selection stays in the page header; expanded media has only its media controls.
+
+Mermaid labels use semibold text and follow the selected light or dark theme. Explicit colors and font weights in a
+diagram remain in effect.
 
 The viewer bundles free, open fonts under the SIL Open Font License: Source Serif 4 for prose, Source Sans 3 for
 controls and diagrams, Source Code Pro for code, and STIX Two Math for supported Mermaid math. No font purchase

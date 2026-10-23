@@ -67,15 +67,19 @@ func (v *viewer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, v.record.readyRecord)
 	case "api/tree":
 		v.tree(w, r)
+	case "api/search":
+		v.search(w, r)
 	case "api/file":
 		v.file(w, r)
 	case "api/raw":
 		v.raw(w, r)
 	case "api/events":
 		v.events(w, r)
+	case "syntax.css":
+		v.syntaxCSS(w, r)
 	case "", "index.html":
 		serveEmbedded(w, r, "web/index.html")
-	case "app.js", "media.js", "start.js", "style.css", "favicon.svg",
+	case "app.js", "finder.js", "media.js", "start.js", "style.css", "favicon.svg",
 		"fonts/SourceSerif4-Regular.ttf.woff2", "fonts/SourceSerif4-Bold.ttf.woff2",
 		"fonts/SourceSerif4-It.ttf.woff2", "fonts/SourceSerif4-BoldIt.ttf.woff2",
 		"fonts/SourceSans3VF-Upright.otf.woff2", "fonts/SourceCodePro-Regular.ttf.woff2",
@@ -190,6 +194,8 @@ type fileResult struct {
 	Text string `json:"text,omitempty"`
 }
 
+var syntaxStylesheet = media.SyntaxCSS
+
 func (v *viewer) file(w http.ResponseWriter, r *http.Request) {
 	name := r.URL.Query().Get("path")
 	path, info, err := v.resolve(name)
@@ -227,8 +233,21 @@ func (v *viewer) file(w http.ResponseWriter, r *http.Request) {
 		result.HTML = html
 	case "text":
 		result.Text = string(content)
+		result.HTML, _ = media.HighlightFile(name, content)
 	}
 	writeJSON(w, result)
+}
+
+func (v *viewer) syntaxCSS(w http.ResponseWriter, r *http.Request) {
+	css, err := syntaxStylesheet()
+	if err != nil {
+		http.Error(w, "cannot render syntax stylesheet", http.StatusInternalServerError)
+		return
+	}
+	w.Header().Set("Content-Type", "text/css; charset=utf-8")
+	if _, err := w.Write(css); err != nil {
+		fmt.Fprintln(os.Stderr, "syntax stylesheet write:", err)
+	}
 }
 
 func (v *viewer) raw(w http.ResponseWriter, r *http.Request) {

@@ -250,7 +250,9 @@ export async function mediaViewerBrowserSpec(page) {
     await test.keyboard.press("Tab");
     assert(
       await test.evaluate(() =>
-        document.querySelector("dialog").contains(document.activeElement),
+        document
+          .querySelector(".media-dialog")
+          .contains(document.activeElement),
       ),
       "Tab must remain in expanded dialog",
     );
@@ -274,7 +276,7 @@ export async function mediaViewerBrowserSpec(page) {
     await button("Expand Wide PNG").click();
     await mutate("edit-image");
     await test.waitForFunction(() => {
-      const image = document.querySelector("dialog img");
+      const image = document.querySelector(".media-dialog img");
       if (!image?.complete || !image.naturalWidth) return false;
       const canvas = document.createElement("canvas");
       canvas.width = canvas.height = 1;
@@ -283,7 +285,7 @@ export async function mediaViewerBrowserSpec(page) {
       return drawing.getImageData(0, 0, 1, 1).data[0] === 187;
     });
     assert(
-      (await test.locator("dialog output").textContent()) === "125%",
+      (await test.locator(".media-dialog output").textContent()) === "125%",
       "Expanded image refresh must preserve zoom",
     );
     await button("Close expanded view").click();
@@ -292,11 +294,11 @@ export async function mediaViewerBrowserSpec(page) {
     await mutate("edit-diagram");
     await test.waitForFunction(() =>
       document
-        .querySelector("dialog svg")
+        .querySelector(".media-dialog svg")
         ?.textContent.includes("externally_updated_field"),
     );
     assert(
-      (await test.locator("dialog output").textContent()) === "125%",
+      (await test.locator(".media-dialog output").textContent()) === "125%",
       "Edited expanded diagram must preserve zoom",
     );
     await test.keyboard.press("Escape");
