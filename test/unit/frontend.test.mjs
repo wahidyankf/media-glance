@@ -1342,3 +1342,87 @@ test("Escape closes the finder and restores focus to its opener", async () => {
   app.dispose();
   f.dom.window.close();
 });
+
+test("late finder responses cannot update a closed or disposed dialog", async () => {
+  for (const closeWith of ["button", "escape", "dispose"]) {
+    let releaseResponse;
+    let requestSignal;
+    const f = fixture({ "doc.md": markdown("Finder fixture") });
+    const originalFetch = f.w.fetch;
+    f.w.fetch = async (route, options) => {
+      if (!route.startsWith("api/search?")) return originalFetch(route);
+      requestSignal = options.signal;
+      return new Promise((resolve) => {
+        releaseResponse = () =>
+          resolve({
+            ok: true,
+            json: async () => ({
+              entries: [{ name: "late.py", path: "late.py" }],
+              incomplete: false,
+            }),
+          });
+      });
+    };
+
+    const app = await boot(f.w);
+    const dialog = f.w.document.querySelector("#file-finder");
+    const input = f.w.document.querySelector("#file-finder-query");
+    f.w.document.querySelector("#search-files").click();
+    input.value = "late";
+    input.dispatchEvent(new f.w.Event("input", { bubbles: true }));
+    await f.advanceTimers();
+    assert.equal(typeof releaseResponse, "function");
+    assert.equal(
+      f.w.document.querySelector("#file-finder-status").textContent,
+      "Searching…",
+    );
+
+    if (closeWith === "button")
+      f.w.document.querySelector("#file-finder-close").click();
+    else if (closeWith === "escape")
+      dialog.dispatchEvent(
+        new f.w.KeyboardEvent("keydown", {
+          key: "Escape",
+          bubbles: true,
+          cancelable: true,
+        }),
+      );
+    else app.dispose();
+
+    assert.equal(
+      requestSignal.aborted,
+      true,
+      `${closeWith} aborts the request`,
+    );
+    assert.equal(dialog.open, false, `${closeWith} closes the finder`);
+
+    if (closeWith !== "dispose") {
+      f.w.document.querySelector("#search-files").click();
+      assert.equal(
+        dialog.open,
+        true,
+        "the finder can reopen before the old response arrives",
+      );
+    }
+    const expectedStatus = f.w.document.querySelector(
+      "#file-finder-status",
+    ).textContent;
+    releaseResponse();
+    await settle();
+    await settle();
+
+    assert.equal(dialog.open, closeWith !== "dispose");
+    assert.equal(
+      f.w.document.querySelector("#file-finder-status").textContent,
+      expectedStatus,
+      `${closeWith} ignores the late response status`,
+    );
+    assert.equal(
+      f.w.document.querySelectorAll('[role="option"]').length,
+      0,
+      `${closeWith} ignores late result entries`,
+    );
+    app.dispose();
+    f.dom.window.close();
+  }
+});
