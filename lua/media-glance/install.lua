@@ -1,5 +1,5 @@
 local M = {}
-local version = 'v0.2.1'
+local version = 'v0.3.0'
 
 ---@param arguments string[]
 ---@param timeout integer

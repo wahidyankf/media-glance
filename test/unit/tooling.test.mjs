@@ -286,7 +286,7 @@ test("source and release builds select targets, checksums and stop on build fail
     assert.equal(calls[1].opts.env.GOARCH, "arm64");
     const checksums = readFileSync(join(root, "dist/checksums.txt"), "utf8");
     assert.equal(checksums.trim().split("\n").length, 4);
-    assert.match(checksums, /media-glance_v0\.2\.1_linux_arm64/);
+    assert.match(checksums, /media-glance_v0\.3\.0_linux_arm64/);
     assert.throws(() => release(root, () => ({ status: 3 })), /exited 3/);
   }));
 test("gate commands run in order with fresh reports and propagate format or command failures", () =>
