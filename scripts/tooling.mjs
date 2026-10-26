@@ -16,7 +16,7 @@ import {
 import { join, relative, resolve } from "node:path";
 import { installTools } from "./tools.mjs";
 
-export const version = "v0.2.1";
+export const version = "v0.3.0";
 export const targets = [
   "darwin_arm64",
   "darwin_amd64",

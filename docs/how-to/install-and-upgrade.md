@@ -12,13 +12,13 @@ Neovim. Run:
 :MediaGlanceInstall
 ```
 
-The quick start pins v0.2.1, which includes source-code syntax highlighting, a keyboard file finder, and stronger
+The quick start pins v0.3.0, which includes source-code syntax highlighting, a keyboard file finder, and stronger
 Mermaid labels for readability. The installer chooses your platform automatically and downloads
-`media-glance_v0.2.1_<os>_<arch>` and its `.sha256` file from the
-[v0.2.1 release](https://github.com/wahidyankf/media-glance/releases/tag/v0.2.1).
+`media-glance_v0.3.0_<os>_<arch>` and its `.sha256` file from the
+[v0.3.0 release](https://github.com/wahidyankf/media-glance/releases/tag/v0.3.0).
 
 It validates the checksum file, checks the downloaded executable's version and protocol, then atomically replaces
-`stdpath("cache")/media-glance/v0.2.1/media-glance`. The command waits for installation to finish. Open/list/close
+`stdpath("cache")/media-glance/v0.3.0/media-glance`. The command waits for installation to finish. Open/list/close
 commands never install a missing binary automatically.
 
 Open a saved workspace file and run `:MediaGlanceOpen`. For another plugin manager, make the plugin available on
@@ -60,7 +60,7 @@ Neovim session is installing the same release. Then remove that exact lock direc
 `:MediaGlanceInstall`. With defaults, print its location inside Neovim:
 
 ```vim
-:lua print(vim.fn.stdpath("cache") .. "/media-glance/v0.2.1/install.lock")
+:lua print(vim.fn.stdpath("cache") .. "/media-glance/v0.3.0/install.lock")
 ```
 
 If you configured `cache_dir`, inspect that directory instead. Do not remove another session's active lock or
