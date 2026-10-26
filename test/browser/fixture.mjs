@@ -115,6 +115,30 @@ async function run(binary) {
       "\n";
     const initial = join(nested, "current.md");
     await writeFile(initial, markdown);
+    await writeFile(
+      join(nested, "hello.py"),
+      'def answer():\n\treturn "test"\n',
+    );
+    await writeFile(
+      join(nested, "hello-crlf.py"),
+      'def answer():\r\n\treturn "test"\r\n',
+    );
+    await writeFile(
+      join(nested, "hello-no-final.py"),
+      'print("no final newline")',
+    );
+    await writeFile(
+      join(nested, "hello.go"),
+      'package main\n\nfunc main() {\n\tprintln("hello")\n}\n',
+    );
+    await writeFile(
+      join(nested, "unknown.odd"),
+      "<script>plain text only</script>\n",
+    );
+    await writeFile(
+      join(root, "a000-directory", "hidden.py"),
+      'print("found in a closed folder")\n',
+    );
     await writeFile(join(nested, "large.png"), png(35, 112, 187));
     await writeFile(
       join(nested, "large.svg"),
@@ -162,6 +186,10 @@ async function run(binary) {
       join(nested, "er-styles.md"),
       "# ER style examples\n\n" +
         erSamples.map((value) => "```mermaid\n" + value + "\n```").join("\n\n"),
+    );
+    await writeFile(
+      join(nested, "mermaid-labels.md"),
+      '# Mermaid label typography\n\n```mermaid\nflowchart LR\nA["Default first line<br/>Default second line"] -->|Default edge| B["Explicit style"] --> C["ClassDef style"]\nstyle B color:#ffdd00,font-weight:400\nclassDef authored fill:#364152,color:#77ff99,font-weight:400\nclass C authored\n```\n\n```mermaid\njourney\n  title Default title\n  section Work\n    Start: 5: User\n```\n',
     );
     await writeFile(
       join(nested, "copy.md"),
@@ -241,6 +269,17 @@ async function run(binary) {
             markdown
               .replace("descriptive_field_0", "externally_updated_field")
               .replace("Synthetic baseline prose", "Externally updated prose"),
+          );
+          response.end("updated");
+        } else if (
+          request.method === "POST" &&
+          request.url === "/edit-mermaid-labels"
+        ) {
+          const path = join(nested, "mermaid-labels.md");
+          const source = await readFile(path, "utf8");
+          await writeFile(
+            path,
+            source.replace("Explicit style", "Externally updated style"),
           );
           response.end("updated");
         } else if (request.method === "POST" && request.url === "/edit-prose") {

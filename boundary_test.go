@@ -24,9 +24,16 @@ func fakeHost(t *testing.T) fstest.MapFS {
 	saved := host
 	t.Cleanup(func() { host = saved })
 	files := fstest.MapFS{
-		".":         {Mode: fs.ModeDir | 0700},
-		"README.md": {Data: []byte("# Title\n![asset](assets/x.png)\n")},
-		"docs":      {Mode: fs.ModeDir | 0700}, "docs/a.md": {Data: []byte("hello")},
+		".":                {Mode: fs.ModeDir | 0700},
+		"README.md":        {Data: []byte("# Title\n![asset](assets/x.png)\n")},
+		"example.py":       {Data: []byte("def greet(name):\n\treturn f\"hello, {name}\"\n")},
+		"find":             {Mode: fs.ModeDir | 0700},
+		"find/foo.go":      {Data: []byte("package find\n")},
+		"find/foo.go.bak":  {Data: []byte("backup")},
+		"find/xfoo.go":     {Data: []byte("substring")},
+		"foo.go":           {Mode: fs.ModeDir | 0700},
+		"foo.go/other.txt": {Data: []byte("path substring")},
+		"docs":             {Mode: fs.ModeDir | 0700}, "docs/a.md": {Data: []byte("hello")},
 		"assets": {Mode: fs.ModeDir | 0700}, "assets/x.png": {Data: []byte("png")},
 		"z.txt": {Data: []byte("text")}, "x.html": {Data: []byte("<script>unsafe</script>")},
 		"unknown": {Data: []byte{0, 1}}, "big.txt": {Data: bytes.Repeat([]byte("a"), previewLimit+1)},
@@ -105,6 +112,8 @@ func (r *tempStream) Close() error { return r.closeErr }
 type errorWriter struct{}
 
 func (errorWriter) Write([]byte) (int, error) { return 0, errBoundary }
+func (errorWriter) Header() http.Header       { return make(http.Header) }
+func (errorWriter) WriteHeader(int)           {}
 func unitViewer(t *testing.T) *viewer {
 	t.Helper()
 	fakeHost(t)
@@ -206,6 +215,75 @@ func TestHTTPRoutingAndPreview(t *testing.T) {
 	if w.Code != 404 {
 		t.Fatal(w.Code)
 	}
+}
+
+func TestCodeFileReturnsExactTextAndHighlightedHTML(t *testing.T) {
+	v := unitViewer(t)
+	response := unitResponse(t, v, "GET", "api/file?path=example.py", 200)
+	var result fileResult
+	if err := json.Unmarshal(response.Body.Bytes(), &result); err != nil {
+		t.Fatal(err)
+	}
+	want := "def greet(name):\n\treturn f\"hello, {name}\"\n"
+	if result.Kind != "text" || result.Text != want {
+		t.Fatalf("kind=%q text=%q", result.Kind, result.Text)
+	}
+	if !strings.Contains(result.HTML, `<pre class="chroma`) || !strings.Contains(result.HTML, `<span class="`) {
+		t.Fatalf("missing highlighted source HTML: %s", result.HTML)
+	}
+}
+
+func TestSyntaxCSSIsServedByAuthenticatedRoute(t *testing.T) {
+	v := unitViewer(t)
+	response := unitResponse(t, v, "GET", "syntax.css", 200)
+	css := response.Body.String()
+	if !strings.Contains(response.Header().Get("Content-Type"), "text/css") ||
+		!strings.Contains(css, `:root[data-theme="light"] .chroma`) ||
+		!strings.Contains(css, `:root[data-theme="dark"] .chroma`) {
+		t.Fatalf("invalid syntax stylesheet: type=%q body=%s", response.Header().Get("Content-Type"), css)
+	}
+}
+
+func TestSyntaxCSSHandlesDisconnectedWriter(t *testing.T) {
+	v := unitViewer(t)
+	v.syntaxCSS(errorWriter{}, unitRequest(v, "GET", "syntax.css"))
+}
+
+func TestSyntaxCSSReturnsFailureWhenStyleGenerationFails(t *testing.T) {
+	v := unitViewer(t)
+	original := syntaxStylesheet
+	syntaxStylesheet = func() ([]byte, error) { return nil, errBoundary }
+	t.Cleanup(func() { syntaxStylesheet = original })
+	unitResponse(t, v, "GET", "syntax.css", 500)
+}
+
+func TestFileSearchRanksNamesAndPaths(t *testing.T) {
+	v := unitViewer(t)
+	response := unitResponse(t, v, "GET", "api/search?q=foo.go", 200)
+	var result struct {
+		Entries    []treeEntry `json:"entries"`
+		Incomplete bool        `json:"incomplete"`
+	}
+	if err := json.Unmarshal(response.Body.Bytes(), &result); err != nil {
+		t.Fatal(err)
+	}
+	got := make([]string, len(result.Entries))
+	for i, entry := range result.Entries {
+		got[i] = entry.Path
+	}
+	want := []string{"find/foo.go", "find/foo.go.bak", "find/xfoo.go", "foo.go/other.txt"}
+	if strings.Join(got, "\n") != strings.Join(want, "\n") || result.Incomplete {
+		t.Fatalf("search entries=%v incomplete=%t", got, result.Incomplete)
+	}
+}
+
+func TestFileSearchValidatesQueryLengthAndHandlesEmptyQuery(t *testing.T) {
+	v := unitViewer(t)
+	empty := unitResponse(t, v, "GET", "api/search", 200)
+	if !strings.Contains(empty.Body.String(), `"entries":[]`) || !strings.Contains(empty.Body.String(), `"incomplete":false`) {
+		t.Fatalf("unexpected empty query response: %s", empty.Body.String())
+	}
+	unitResponse(t, v, "GET", "api/search?q="+strings.Repeat("x", 257), 400)
 }
 func TestBundledFreeFontAssets(t *testing.T) {
 	v := unitViewer(t)
@@ -555,10 +633,25 @@ type memoryWorkspace struct {
 	files    fstest.MapFS
 	key      func(string) string
 	closeErr error
+	openDir  func(string) (fs.ReadDirFile, error)
 }
 
 func (m *memoryWorkspace) Open(name string) (io.ReadSeekCloser, error) {
 	return host.open("/workspace/" + name)
+}
+func (m *memoryWorkspace) OpenDir(name string) (fs.ReadDirFile, error) {
+	if m.openDir != nil {
+		return m.openDir(name)
+	}
+	entries, err := host.readDir("/workspace/" + name)
+	if err != nil {
+		return nil, err
+	}
+	info, err := host.stat("/workspace/" + name)
+	if err != nil {
+		return nil, err
+	}
+	return &memoryReadDir{entries: entries, info: info}, nil
 }
 func (m *memoryWorkspace) Stat(name string) (fs.FileInfo, error) {
 	return host.stat("/workspace/" + name)
@@ -567,3 +660,36 @@ func (m *memoryWorkspace) ReadDir(name string) ([]os.DirEntry, error) {
 	return host.readDir("/workspace/" + name)
 }
 func (m *memoryWorkspace) Close() error { return m.closeErr }
+
+type memoryReadDir struct {
+	entries []os.DirEntry
+	info    fs.FileInfo
+	index   int
+	readErr error
+	onRead  func()
+	onClose func() error
+}
+
+func (m *memoryReadDir) ReadDir(n int) ([]os.DirEntry, error) {
+	if m.index >= len(m.entries) {
+		return nil, io.EOF
+	}
+	end := len(m.entries)
+	if n > 0 && end-m.index > n {
+		end = m.index + n
+	}
+	entries := m.entries[m.index:end]
+	m.index = end
+	if m.onRead != nil {
+		m.onRead()
+	}
+	return entries, m.readErr
+}
+func (m *memoryReadDir) Read([]byte) (int, error)   { return 0, fs.ErrInvalid }
+func (m *memoryReadDir) Stat() (fs.FileInfo, error) { return m.info, nil }
+func (m *memoryReadDir) Close() error {
+	if m.onClose != nil {
+		return m.onClose()
+	}
+	return nil
+}

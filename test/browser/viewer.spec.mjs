@@ -149,17 +149,23 @@ test("system theme, manual persistence, diagram rendering and expanded media sur
       decoded: true,
     });
     const diagramPalette = () =>
-      page.locator(".mermaid svg").evaluate((svg) => ({
-        background: globalThis
-          .getComputedStyle(globalThis.document.documentElement)
-          .getPropertyValue("--page")
-          .trim(),
-        text: globalThis.getComputedStyle(svg.querySelector(".nodeLabel"))
-          .color,
-      }));
+      page.locator(".mermaid svg").evaluate((svg) => {
+        const label = globalThis.getComputedStyle(
+          svg.querySelector(".nodeLabel"),
+        );
+        return {
+          background: globalThis
+            .getComputedStyle(globalThis.document.documentElement)
+            .getPropertyValue("--page")
+            .trim(),
+          text: label.color,
+          weight: label.fontWeight,
+        };
+      });
     await expect.poll(diagramPalette).toEqual({
       background: "#182331",
-      text: "rgb(204, 204, 204)",
+      text: "rgb(224, 232, 242)",
+      weight: "600",
     });
     const initialFile = page.url();
     await page.evaluate(() => {
@@ -188,12 +194,15 @@ test("system theme, manual persistence, diagram rendering and expanded media sur
       ink: "#37352f",
       sidebar: "#f7f7f5",
     });
-    await expect
-      .poll(diagramPalette)
-      .toEqual({ background: "#fffefc", text: "rgb(51, 51, 51)" });
     await expect.poll(diagramPalette).toEqual({
       background: "#fffefc",
-      text: "rgb(51, 51, 51)",
+      text: "rgb(36, 41, 47)",
+      weight: "600",
+    });
+    await expect.poll(diagramPalette).toEqual({
+      background: "#fffefc",
+      text: "rgb(36, 41, 47)",
+      weight: "600",
     });
     expect(
       await image
@@ -228,25 +237,25 @@ test("system theme, manual persistence, diagram rendering and expanded media sur
       .click();
     await expect(
       page
-        .locator("dialog")
+        .locator(".media-dialog")
         .getByRole("button", { name: /^(Light|Dark) mode$/ }),
     ).toHaveCount(0);
     await expect(page.locator("html")).toHaveAttribute("data-theme", "light");
-    await expect(page.locator("dialog")).toBeVisible();
-    await expect(page.locator("dialog output")).toHaveText(diagramZoom);
+    await expect(page.locator(".media-dialog")).toBeVisible();
+    await expect(page.locator(".media-dialog output")).toHaveText(diagramZoom);
     await page.request.post(new URL("edit-diagram", ready.fixtureUrl).href);
-    await expect(page.locator("dialog")).toContainText(
+    await expect(page.locator(".media-dialog")).toContainText(
       "externally_updated_field",
     );
     await expect(page.locator("html")).toHaveAttribute("data-theme", "light");
-    await expect(page.locator("dialog output")).toHaveText(diagramZoom);
+    await expect(page.locator(".media-dialog output")).toHaveText(diagramZoom);
     await expect(
       page
-        .locator("dialog")
+        .locator(".media-dialog")
         .getByRole("button", { name: /^(Light|Dark) mode$/ }),
     ).toHaveCount(0);
     await page
-      .locator("dialog")
+      .locator(".media-dialog")
       .getByRole("button", { name: "Close expanded view", exact: true })
       .click();
     await page.getByRole("button", { name: "Dark mode", exact: true }).click();
@@ -341,7 +350,7 @@ test("explicit ER fills and label colors remain readable while unstyled rows kee
       await expect(page.locator("html")).toHaveAttribute("data-theme", mode);
       await expect.poll(() => page.locator(".mermaid svg").count()).toBe(5);
       const expectedLabel =
-        mode === "light" ? "rgb(51, 51, 51)" : "rgb(204, 204, 204)";
+        mode === "light" ? "rgb(36, 41, 47)" : "rgb(224, 232, 242)";
       if (mode === "light") {
         await page.waitForFunction(() => globalThis.initialEROpenQueued);
         await page.evaluate(() => globalThis.releaseInitialEROpen());
@@ -429,6 +438,331 @@ test("explicit ER fills and label colors remain readable while unstyled rows kee
           .getByRole("button", { name: "Dark mode", exact: true })
           .click();
     }
+  } finally {
+    const stopped = await fixture.stop();
+    expect(stopped.code, stopped.stderr).toBe(0);
+    expect(stopped.cleanup?.cleanup).toBe("complete");
+  }
+});
+
+test("code previews highlight Python, Go, and Markdown while copying exact source in both themes", async ({
+  page,
+  context,
+}) => {
+  const fixture = createFixture(resolve("build/media-glance"));
+  try {
+    const ready = await fixture.ready;
+    const info = await (
+      await page.request.get(new URL("info", ready.fixtureUrl).href)
+    ).json();
+    const address = new URL(info.viewerUrl);
+    address.searchParams.set("file", "zz-selected/nested/hello.py");
+    await context.grantPermissions(["clipboard-read", "clipboard-write"], {
+      origin: address.origin,
+    });
+    await page.emulateMedia({ colorScheme: "dark" });
+    await page.goto(address.href);
+    await expect(
+      page.locator('link[rel="stylesheet"][href="syntax.css"]'),
+    ).toHaveCount(1);
+    const stylesheet = await page.request.get(
+      new URL("syntax.css", address).href,
+    );
+    expect(stylesheet.status()).toBe(200);
+    const code = page.locator("#panel pre > code");
+    const python = 'def answer():\n\treturn "test"\n';
+    // Live refresh can replace the preview between locator calls. Sample both
+    // connected elements together so a detached pre cannot supply an empty size.
+    await expect
+      .poll(() =>
+        page.evaluate(() => {
+          const current = document.querySelector("#panel pre > code");
+          const pre = current?.parentElement;
+          if (!current?.isConnected || !pre?.isConnected) return null;
+          const codeStyle = getComputedStyle(current);
+          const preStyle = getComputedStyle(pre);
+          return {
+            fontSizeInherited:
+              preStyle.fontSize !== "" &&
+              codeStyle.fontSize === preStyle.fontSize,
+            background: codeStyle.backgroundColor,
+          };
+        }),
+      )
+      .toEqual({
+        fontSizeInherited: true,
+        background: "rgba(0, 0, 0, 0)",
+      });
+    await expect(code).toContainText(python.trim());
+    await expect(code.locator("span").first()).toBeVisible();
+    const darkToken = await code
+      .locator("span")
+      .first()
+      .evaluate((token) => globalThis.getComputedStyle(token).color);
+    expect(darkToken).not.toBe("");
+    await page.getByRole("button", { name: "Copy code", exact: true }).click();
+    await expect(page.locator("pre [role=status]")).toHaveText("Copied");
+    expect(await page.evaluate(() => navigator.clipboard.readText())).toBe(
+      python,
+    );
+    await page.getByRole("button", { name: "Light mode", exact: true }).click();
+    const lightToken = await code
+      .locator("span")
+      .first()
+      .evaluate((token) => globalThis.getComputedStyle(token).color);
+    expect(lightToken).not.toBe(darkToken);
+    expect(await code.evaluate((element) => element.textContent)).toBe(python);
+
+    address.searchParams.set("file", "zz-selected/nested/hello-crlf.py");
+    await page.goto(address.href);
+    const crlfCode = page.locator("#panel pre > code");
+    const crlfPython = 'def answer():\r\n\treturn "test"\r\n';
+    await expect(crlfCode.locator("span").first()).toBeVisible();
+    expect(await crlfCode.evaluate((element) => element.textContent)).toBe(
+      crlfPython,
+    );
+    await page.getByRole("button", { name: "Copy code", exact: true }).click();
+    await expect(page.locator("pre [role=status]")).toHaveText("Copied");
+    expect(await page.evaluate(() => navigator.clipboard.readText())).toBe(
+      crlfPython,
+    );
+
+    address.searchParams.set("file", "zz-selected/nested/hello-no-final.py");
+    await page.goto(address.href);
+    const noFinalCode = page.locator("#panel pre > code");
+    const noFinalPython = 'print("no final newline")';
+    expect(await noFinalCode.evaluate((element) => element.textContent)).toBe(
+      noFinalPython,
+    );
+    await page.getByRole("button", { name: "Copy code", exact: true }).click();
+    await expect(page.locator("pre [role=status]")).toHaveText("Copied");
+    expect(await page.evaluate(() => navigator.clipboard.readText())).toBe(
+      noFinalPython,
+    );
+
+    address.searchParams.set("file", "zz-selected/nested/hello.go");
+    await page.goto(address.href);
+    await expect(code.locator("span").first()).toBeVisible();
+    expect(await code.evaluate((element) => element.textContent)).toBe(
+      'package main\n\nfunc main() {\n\tprintln("hello")\n}\n',
+    );
+
+    address.searchParams.set("file", "zz-selected/nested/copy.md");
+    await page.goto(address.href);
+    await expect(page.locator("article pre code span").first()).toBeVisible();
+    const fenced = page.locator("article pre > code");
+    expect(await fenced.evaluate((element) => element.textContent)).toContain(
+      'GET /notes?x=1&y=2\n\t{"label":"<safe>"}\n',
+    );
+
+    address.searchParams.set("file", "zz-selected/nested/unknown.odd");
+    await page.goto(address.href);
+    const plain = page.locator("#panel pre > code");
+    await expect(plain.locator("span")).toHaveCount(0);
+    expect(await plain.evaluate((element) => element.textContent)).toBe(
+      "<script>plain text only</script>\n",
+    );
+    await expect(plain.locator("script")).toHaveCount(0);
+  } finally {
+    const stopped = await fixture.stop();
+    expect(stopped.code, stopped.stderr).toBe(0);
+    expect(stopped.cleanup?.cleanup).toBe("complete");
+  }
+});
+
+test("file finder searches closed folders, supports repeat searches, and stacks over expanded diagrams", async ({
+  page,
+}) => {
+  const fixture = createFixture(resolve("build/media-glance"));
+  try {
+    const ready = await fixture.ready;
+    const info = await (
+      await page.request.get(new URL("info", ready.fixtureUrl).href)
+    ).json();
+    await page.goto(info.viewerUrl);
+    const searchButton = page.getByRole("button", {
+      name: "Search files",
+      exact: true,
+    });
+    await page.keyboard.press("Meta+k");
+    const dialog = page.getByRole("dialog", { name: "Search files" });
+    const query = page.getByRole("searchbox", { name: "File name or path" });
+    await expect(dialog).toBeVisible();
+    await expect(query).toBeFocused();
+    await page.keyboard.press("Escape");
+    await expect(searchButton).toBeFocused();
+    await searchButton.click();
+    await expect(dialog).toBeVisible();
+    await expect(query).toBeFocused();
+    await expect(
+      page.getByRole("status").filter({ hasText: /type/i }),
+    ).toBeVisible();
+
+    await query.fill("hello");
+    const goResult = page
+      .getByRole("option")
+      .filter({ hasText: "zz-selected/nested/hello.go" });
+    await expect(goResult).toBeVisible();
+    await goResult.focus();
+    await page.keyboard.press("Enter");
+    await expect(dialog).toBeHidden();
+    await expect(page.locator(".file-title")).toHaveText(
+      "zz-selected/nested/hello.go",
+    );
+
+    await searchButton.click();
+    await query.fill("hidden.py");
+    await expect(
+      page.getByRole("option").filter({ hasText: "a000-directory/hidden.py" }),
+    ).toBeVisible();
+    await page.getByRole("button", { name: "Close", exact: true }).focus();
+    await page.keyboard.press("Enter");
+    await expect(dialog).toBeHidden();
+    await expect(page.locator(".file-title")).toHaveText(
+      "zz-selected/nested/hello.go",
+    );
+
+    await searchButton.click();
+    await query.fill("hidden.py");
+    const hidden = page
+      .getByRole("option")
+      .filter({ hasText: "a000-directory/hidden.py" });
+    await expect(hidden).toBeVisible();
+    await expect(hidden).toContainText("a000-directory/hidden.py");
+    await query.press("ArrowDown");
+    await query.press("Enter");
+    await expect(dialog).toBeHidden();
+    await expect(page.locator(".file-title")).toHaveText(
+      "a000-directory/hidden.py",
+    );
+    await expect(page.locator("#panel pre > code")).toContainText(
+      "found in a closed folder",
+    );
+
+    await searchButton.click();
+    await query.fill("hello.go");
+    await page.getByRole("option").filter({ hasText: "hello.go" }).click();
+    await expect(page.locator(".file-title")).toHaveText(
+      "zz-selected/nested/hello.go",
+    );
+
+    const address = new URL(info.viewerUrl);
+    address.searchParams.set("file", "zz-selected/nested/current.md");
+    await page.goto(address.href);
+    await page
+      .getByRole("button", { name: "Expand Mermaid diagram" })
+      .first()
+      .click();
+    const expanded = page.locator(".media-dialog");
+    await expect(expanded).toBeVisible();
+    await page.keyboard.press("Control+k");
+    await expect(dialog).toBeVisible();
+    await expect(query).toBeFocused();
+    await expect(expanded).toBeVisible();
+    await page.keyboard.press("Escape");
+    await expect(dialog).toBeHidden();
+    await expect(expanded).toBeVisible();
+  } finally {
+    const stopped = await fixture.stop();
+    expect(stopped.code, stopped.stderr).toBe(0);
+    expect(stopped.cleanup?.cleanup).toBe("complete");
+  }
+});
+
+test("Mermaid defaults use strong theme labels and keep authored styles and multiline labels", async ({
+  page,
+}) => {
+  const fixture = createFixture(resolve("build/media-glance"));
+  try {
+    const ready = await fixture.ready;
+    const info = await (
+      await page.request.get(new URL("info", ready.fixtureUrl).href)
+    ).json();
+    const address = new URL(info.viewerUrl);
+    address.searchParams.set("file", "zz-selected/nested/mermaid-labels.md");
+    await page.emulateMedia({ colorScheme: "dark" });
+    await page.goto(address.href);
+    const defaultLabel = page
+      .locator(".mermaid .nodeLabel")
+      .filter({ hasText: "Default first line" });
+    await expect(defaultLabel).toBeVisible();
+    const renderedStyles = await page
+      .locator(".mermaid svg style")
+      .first()
+      .textContent();
+    expect(renderedStyles).toMatch(/\.nodeLabel[^}]*font-weight:600/);
+    await expect
+      .poll(() =>
+        defaultLabel.evaluate((label) => ({
+          color: getComputedStyle(label).color,
+          weight: getComputedStyle(label).fontWeight,
+          height: label.getBoundingClientRect().height,
+          text: label.innerText,
+        })),
+      )
+      .toEqual({
+        color: "rgb(224, 232, 242)",
+        weight: "600",
+        height: expect.any(Number),
+        text: "Default first line\nDefault second line",
+      });
+    expect(
+      await defaultLabel.evaluate((label) => {
+        const box = label.getBoundingClientRect();
+        const container = label
+          .closest("foreignObject")
+          .getBoundingClientRect();
+        return {
+          height: box.height,
+          fits:
+            box.top >= container.top - 1 && box.bottom <= container.bottom + 1,
+        };
+      }),
+    ).toEqual({ height: expect.any(Number), fits: true });
+    for (const [selector, text] of [
+      ["svg text", "Default title"],
+      [".edgeLabels span.edgeLabel", "Default edge"],
+    ]) {
+      const label = page
+        .locator(`.mermaid ${selector}`)
+        .filter({ hasText: text });
+      await expect(label).toHaveCSS("font-weight", "600");
+      await expect(label).toHaveCSS("color", "rgb(224, 232, 242)");
+    }
+    const explicitLabel = page
+      .locator(".mermaid .nodeLabel")
+      .filter({ hasText: "Explicit style" });
+    await expect(explicitLabel).toHaveCSS("color", "rgb(255, 221, 0)");
+    await expect(explicitLabel).toHaveCSS("font-weight", "400");
+    const classDefLabel = page
+      .locator(".mermaid .nodeLabel")
+      .filter({ hasText: "ClassDef style" });
+    await expect(classDefLabel).toHaveCSS("color", "rgb(119, 255, 153)");
+    await expect(classDefLabel).toHaveCSS("font-weight", "400");
+
+    await page.getByRole("button", { name: "Light mode", exact: true }).click();
+    await expect(defaultLabel).toHaveCSS("color", "rgb(36, 41, 47)");
+    await expect(defaultLabel).toHaveCSS("font-weight", "600");
+    const zoom = page
+      .getByRole("button", { name: "Zoom in Mermaid diagram" })
+      .first();
+    await zoom.click();
+    const percent = page.locator(".mermaid output").first();
+    await expect(percent).not.toHaveText("100%");
+    await page
+      .getByRole("button", { name: "Expand Mermaid diagram" })
+      .first()
+      .click();
+    const expandedDefaultLabel = page
+      .locator(".media-dialog .nodeLabel")
+      .filter({ hasText: "Default first line" });
+    await expect(expandedDefaultLabel).toHaveCSS("font-weight", "600");
+    await page.request.post(
+      new URL("edit-mermaid-labels", ready.fixtureUrl).href,
+    );
+    await expect(page.locator(".media-dialog")).toContainText(
+      "Externally updated style",
+    );
   } finally {
     const stopped = await fixture.stop();
     expect(stopped.code, stopped.stderr).toBe(0);
@@ -600,7 +934,9 @@ test("bundled free fonts load offline for prose, controls, code, Mermaid and nat
     for (const [index, label] of expanded.labels.entries()) {
       expect(label.width).toBeCloseTo(ordinary.labels[index].width, 1);
     }
-    await expect(page.locator("dialog [data-theme-control]")).toHaveCount(0);
+    await expect(
+      page.locator(".media-dialog [data-theme-control]"),
+    ).toHaveCount(0);
     await page
       .getByRole("button", { name: "Close expanded view", exact: true })
       .click();
