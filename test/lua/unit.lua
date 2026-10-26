@@ -15,6 +15,7 @@ runner.init({
 dofile 'test/lua/core.lua'
 dofile 'test/lua/installer.lua'
 dofile 'test/lua/failures.lua'
+dofile 'test/lua/copy.lua'
 runner.shutdown()
 local stats = require 'luacov.stats'
 local data = assert(stats.load '.coverage/luacov.stats')
