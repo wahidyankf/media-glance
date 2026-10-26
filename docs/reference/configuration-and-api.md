@@ -39,6 +39,8 @@ There are no default mappings, port options, or automatic Git-root detection. Se
 | `:MediaGlanceOpen`    | `open()`         | Start or reuse this session's server and open a focused saved file. |
 | `:MediaGlanceList`    | `list()`         | Discover validated servers and open the selected instance.          |
 | `:MediaGlanceClose`   | `close()`        | Discover validated servers and stop the selected instance.          |
+| `:MediaGlanceCopy`    | `copy()`         | Discover validated servers and copy the selected instance URL.      |
+| `:MediaCopy`          | `copy()`         | Alias of `:MediaGlanceCopy`.                                        |
 | `:MediaGlanceInstall` | `install()`      | Download, verify, and atomically install the matching release.      |
 | No command            | `shutdown()`     | Stop only this session's owned server through its ownership pipe.   |
 | No command            | `setup(options)` | Register commands and exit cleanup; replace configuration.          |
@@ -50,10 +52,14 @@ The other functions return no result; startup, browser-open, list, and stop fail
 Open/list/close use asynchronous jobs or subprocess callbacks. `install()` waits for its download and verification
 steps to finish. `shutdown()` initiates cleanup; it does not wait for the server's exit callback.
 
-The list orders this session's owned server first, then other servers by port. Both open and close lists display
-`root | owner PID [this session] | :port`, omitting `[this session]` for other sessions. The port appears at the end.
+The list orders this session's owned server first, then other servers by port. The open, close, and copy lists
+display `root | owner PID [this session] | :port`, omitting `[this session]` for other sessions. The port appears at
+the end.
 Selection opens the file captured before the picker, if that
-file belongs to the selected root. Otherwise it falls back to root `README.md`, then the explorer.
+file belongs to the selected root. Otherwise it falls back to root `README.md`, then the explorer. Copy yanks that
+same URL to the system clipboard (`+` register) and notifies the URL at INFO level; when the clipboard is
+unavailable the notification still carries the URL text for manual copying. Copy never starts, restarts, or stops a
+server.
 
 ## Installed binary and protocol
 

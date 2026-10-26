@@ -56,21 +56,27 @@ Configure options before starting a server.
 :MediaGlanceOpen         Start this session's server or reopen its focused file.
 :MediaGlanceList         List running servers. Enter opens; Escape cancels.
 :MediaGlanceClose        List running servers. Enter stops; Escape cancels.
+:MediaGlanceCopy         List running servers. Enter copies the URL; Escape cancels.
+:MediaCopy               Alias of :MediaGlanceCopy.
 :MediaGlanceInstall      Explicitly download and verify the matching release.
 
-Lua equivalents are open(), list(), close(), and install(). install() returns
-path, nil on success or nil, failure on an expected installation failure.
-shutdown() stops only this session's owned server through its ownership pipe.
-setup(options) registers commands and VimLeavePre cleanup without starting,
-building, or downloading a server.
+Lua equivalents are open(), list(), close(), copy(), and install(). install()
+returns path, nil on success or nil, failure on an expected installation
+failure. shutdown() stops only this session's owned server through its
+ownership pipe. setup(options) registers commands and VimLeavePre cleanup
+without starting, building, or downloading a server.
 
-Open, list, close, and shutdown return no result and report failures through
-notifications. They use asynchronous jobs or callbacks; shutdown initiates cleanup
-without waiting for exit. install() synchronously waits for its download and
-verification steps, so Neovim can remain busy until installation finishes.
+Open, list, close, copy, and shutdown return no result and report failures
+through notifications. They use asynchronous jobs or callbacks; shutdown
+initiates cleanup without waiting for exit. install() synchronously waits for
+its download and verification steps, so Neovim can remain busy until
+installation finishes. copy() yanks the selected server URL, including the
+focused-file query, to the system clipboard and notifies the URL at INFO
+level; when the clipboard is unavailable the notification still carries the
+URL for manual copying. Copy never starts or stops a server.
 
 The picker uses vim.ui.select, so an installed UI provider may render the list.
-Open and close picker rows show root | owner PID [this session] | :port.
+Open, close, and copy picker rows show root | owner PID [this session] | :port.
 Other sessions omit [this session]. Fuzzy search depends on your UI provider;
 Telescope's ui-select supports filtering by workspace or port, native UI does not.
 Telescope's media picker maps Escape to cancel in insert and normal modes.

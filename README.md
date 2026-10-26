@@ -75,14 +75,19 @@ process update it: the preview refreshes while preserving document scroll and re
 
 | Command               | Action                                                                 |
 | --------------------- | ---------------------------------------------------------------------- |
+| Command               | Action                                                                 |
+| --------------------- | ---------------------------------------------------------------------- |
 | `:MediaGlanceOpen`    | Start or reuse this session's server and open the current saved file.  |
 | `:MediaGlanceList`    | Pick a server and open your current file when it belongs to that root. |
 | `:MediaGlanceClose`   | Pick a running server and stop it.                                     |
+| `:MediaGlanceCopy`    | Pick a server and copy its URL for your current file (`:MediaCopy`).   |
 | `:MediaGlanceInstall` | Download and verify the plugin's declared binary release.              |
 
 With common picker providers, Enter confirms and Escape cancels. Server pickers use `vim.ui.select`; an installed
-UI provider can supply the picker. Both open and close lists show the workspace, owner PID, `[this session]` when
-applicable, and the port at the end: `/workspace/notes | owner 1234 [this session] | :57300`.
+UI provider can supply the picker. The open, close, and copy lists show the workspace, owner PID, `[this session]`
+when applicable, and the port at the end: `/workspace/notes | owner 1234 [this session] | :57300`.
+Copy yanks the selected server URL, including the current-file query, to the system clipboard and notifies it;
+it never starts or stops a server.
 Fuzzy search depends on that provider: Telescope's `ui-select` extension lets you type a workspace or port to filter;
 Neovim's native selector does not provide fuzzy search. The plugin creates no default keybindings.
 For example, add these mappings after plugin setup:
