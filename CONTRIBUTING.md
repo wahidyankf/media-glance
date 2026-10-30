@@ -1,5 +1,7 @@
 # Contributing to media-glance.nvim
 
+External contributions are currently closed. Forks remain welcome under the MIT license.
+
 Work on a branch in a worktree at `{repository}/worktrees/<task>` and submit a pull request. Changes must pass
 the required CI before merging to `main`. After merge, remove only your clean task worktree and task branch.
 Keep personal configuration and workspace documents outside the repository.
