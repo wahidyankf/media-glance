@@ -184,6 +184,8 @@ and resource regression checks.
 
 ## Contributing and license
 
+External contributions are currently closed. Forks remain welcome under the MIT license.
+
 [CONTRIBUTING.md](CONTRIBUTING.md) covers native development tools, hooks, complete checks, and releases.
 Go, Lua, and JavaScript each have an independent **99% unit coverage gate**, with separate integration, Neovim,
 and browser tests. Changes reach `main` through pull requests with required CI.
