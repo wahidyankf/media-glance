@@ -17,8 +17,9 @@ import (
 )
 
 type mediaRenderer struct {
-	document string
-	assets   []string
+	document     string
+	assets       []string
+	syntaxBudget int
 }
 
 func localTarget(document, destination string) (string, string) {
@@ -130,8 +131,18 @@ func (m *mediaRenderer) fence(w util.BufWriter, source []byte, node ast.Node, en
 	if language == "mermaid" {
 		opening = "<div class=\"mermaid\" data-diagram=\"" + html.EscapeString(content.String()) + "\"><pre>"
 		closing = "</pre></div>"
+	} else if content.Len() <= m.syntaxBudget {
+		m.syntaxBudget -= content.Len()
+		if highlighted, ok := highlightHTML("", language, content.Bytes()); ok {
+			_, err := w.WriteString(highlighted)
+			return ast.WalkSkipChildren, err
+		}
 	}
-	_, err := w.WriteString(opening + html.EscapeString(content.String()) + closing)
+	escapedContent := html.EscapeString(content.String())
+	if language != "mermaid" {
+		escapedContent = strings.ReplaceAll(escapedContent, "\r", "&#13;")
+	}
+	_, err := w.WriteString(opening + escapedContent + closing)
 	return ast.WalkSkipChildren, err
 }
 
@@ -161,7 +172,7 @@ func (m *mediaRenderer) rawHTML(w util.BufWriter, source []byte, node ast.Node, 
 
 // RenderMarkdown renders inert document HTML and returns referenced workspace assets.
 func RenderMarkdown(source []byte, document string) (string, []string, error) {
-	media := &mediaRenderer{document: document}
+	media := &mediaRenderer{document: document, syntaxBudget: SyntaxHighlightLimit}
 	markdown := goldmark.New(goldmark.WithExtensions(extension.Table, extension.Strikethrough, extension.TaskList), goldmark.WithParserOptions(parser.WithAutoHeadingID()), goldmark.WithRendererOptions(renderer.WithNodeRenderers(util.Prioritized(media, 100))))
 	var output bytes.Buffer
 	if err := markdown.Convert(source, &output); err != nil {

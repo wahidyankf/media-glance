@@ -1,48 +1,38 @@
 # Documentation assets
 
-`demo.gif` records the actual browser interface served by the media-glance.nvim v0.1.0 release binary. It uses a
-temporary, invented workspace named `demo-workspace`; it does not record a personal workspace or the desktop.
-The browser viewport is 1060 × 700 pixels. The looping GIF contains 89 frames at 6 frames per second, lasting
-about 15 seconds.
+`demo.gif` records the actual browser interface served by the media-glance.nvim v0.2.0 candidate binary. The
+isolated `media-glance-demo` workspace contains an invented Markdown diagram, small Python and Go examples, and a
+local SVG. The browser viewport was 1060 × 700 pixels. The looping GIF has 70 frames at 6 frames per second and
+lasts 11.67 seconds; its frames play at one-third of the original recording speed for readability. It is resized to
+800 × 528 pixels and uses a 96-color palette. No frames or interface elements are composited.
 
 ## What the recording shows
 
-1. The selected `docs/design.md` document opens with its file highlighted in the explorer and a rendered Mermaid
-   flowchart.
-2. The diagram's own zoom controls enlarge it without enlarging the document text. **Expand** opens its dialog;
-   Escape closes it, and **Fit** restores the fitted size.
-3. A separate filesystem write atomically replaces the Markdown file. **Live update: saved by another process.**
-   appears in the existing preview.
-4. A relative link opens `assets/preview.svg`, a locally generated illustration, in the viewer.
+1. The `docs/design.md` file opens in the dark theme with a Mermaid flowchart.
+2. The browser file finder opens with **⌘K** on macOS; a search finds `examples/hello.py` and opens it.
+3. The Python source is syntax-highlighted. **Copy** copies its source and displays **Copied**.
+4. The finder returns to `docs/design.md`; **Expand** opens the diagram, and Escape closes it.
+5. The visible **Light mode** control changes the page and diagram to the light theme.
 
-The browser is driven through its real controls. The recording starts an isolated native server with the initial
-file selected; it demonstrates the browser experience rather than recording the Neovim command itself. Screenshots
-capture only the page viewport, excluding the address bar, authentication URL, browser profile, and desktop.
-No interface elements or update results are composited into the frames. Only GIF palette conversion is applied.
+The browser uses the real viewer and its controls. The recording shows only the page, not the browser chrome, URL,
+desktop, or user profile. GIF resizing, playback timing, and palette conversion are the only changes to the captured
+video.
 
 ## Sample data and privacy
 
-All file names, Markdown text, diagram labels, and SVG artwork were created for this demo. The diagram reads
-**Neovim → Saved file → Go server → Browser**. The SVG reads **Local media** and **Fit · Zoom · Expand**.
-No repository documents, personal paths, usernames, credentials, or live user files are included.
-
-The recording process verifies the selected file, rendered diagram, expanded dialog, external update, and loaded
-image. It then closes its browser context and server, checks an empty server registry and closed listener, and
-removes its temporary workspace. For an accessible step-by-step equivalent, use the
+All file names, source code, Markdown text, diagram labels, and SVG artwork were created for this recording. The
+temporary workspace has only `README.md`, `docs/design.md`, `examples/hello.py`, `examples/hello.go`, and
+`assets/preview.svg`. No repository documents, personal paths, usernames, credentials, or live user files are
+included. The browser context closes, the local server exits, and the temporary workspace and state directory are
+removed after capture. For an accessible step-by-step equivalent, use the
 [first-preview tutorial](../tutorials/preview-your-first-document.md).
 
-## Theme screenshots
+## Screenshots
 
-`dark-mode.png` and `light-mode.png` show the v0.1.3 candidate’s actual browser interface at 1180 × 900 pixels.
-They use a temporary `example-notes` workspace with four invented files, a focused `notes/guide.md`, a three-node
-flowchart, and a simple local SVG.
-Only the page viewport is captured; address bars, URL tokens, user profiles, and desktop content are excluded.
-The dark screenshot follows the system preference; the light screenshot follows the visible **Light mode** control.
-Both use bundled Mermaid with corresponding diagram colors. The owned browser and server stop after capture,
-and the fixture validates registry and temporary-workspace cleanup. The older GIF above remains a v0.1.0 recording.
+`dark-mode.png` and `light-mode.png` show the same invented Mermaid flow in their respective themes. `file-finder.png`
+shows a filename search; `code-copy.png` shows highlighted Python and its successful copy status;
+`expanded-diagram.png` shows the diagram's expanded view without the page header. All five were captured from the
+v0.2.0 candidate binary at 1060 × 700 pixels in the same temporary workspace as the GIF.
 
-`er-styles.png` shows two invented ER entities with explicit blue fills and white labels in light mode.
-`expanded-diagram.png` captures only that diagram’s actual expanded dialog, whose toolbar has media controls
-and no theme selector. `code-copy.png` shows two invented HTTP/JSON fences with top-right Copy controls.
-The same four-file temporary workspace is updated through real filesystem saves for these captures.
-All five screenshots use the v0.1.3 candidate’s bundled free fonts. The older GIF retains its original provenance.
+`er-styles.png` is an earlier v0.1.3 candidate screenshot of explicit ER diagram fills and white labels. It remains a
+separate historical example and does not use the v0.2.0 demo workspace.

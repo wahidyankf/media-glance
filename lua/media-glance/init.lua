@@ -133,17 +133,26 @@ local function encode_query(value)
   end))
 end
 
----@param server WorkspaceMediaServer
+---@param base_url string
+---@param root string
 ---@param filename string|nil
-local function open_browser(server, filename)
-  local url = server.url
+---@return string
+local function server_url_for(base_url, root, filename)
+  local url = base_url
   if filename ~= nil then
     url = url:gsub('%?.*$', '')
-    if filename ~= '' and within_root(server.root, filename) then
-      local prefix = server.root:sub(-1) == '/' and server.root or server.root .. '/'
+    if filename ~= '' and within_root(root, filename) then
+      local prefix = root:sub(-1) == '/' and root or root .. '/'
       url = url .. '?file=' .. encode_query(filename:sub(#prefix + 1))
     end
   end
+  return url
+end
+
+---@param server WorkspaceMediaServer
+---@param filename string|nil
+local function open_browser(server, filename)
+  local url = server_url_for(server.url, server.root, filename)
   local process, failure = vim.ui.open(url)
   if not process then
     notify_error('could not open browser: ' .. tostring(failure))
@@ -152,7 +161,7 @@ end
 
 ---@return string|nil
 local function locate_binary()
-  local path = options.binary or vim.fs.joinpath(options.cache_dir or default_cache(), 'v0.1.3', 'media-glance')
+  local path = options.binary or vim.fs.joinpath(options.cache_dir or default_cache(), 'v0.3.0', 'media-glance')
   if vim.fn.executable(path) ~= 1 then
     notify_error 'binary is unavailable. Run :MediaGlanceInstall explicitly or configure binary.'
     return nil
@@ -294,7 +303,18 @@ function M.open()
   end, startup_timeout_ms)
 end
 
----@param action 'open'|'close'
+---Attempt the + register write; clipboard failure is an ordinary outcome.
+---@param url string
+---@return string|nil failure
+local function clipboard_copy(url)
+  local ok, failure = pcall(vim.fn.setreg, '+', url)
+  if not ok then
+    return tostring(failure)
+  end
+  return nil
+end
+
+---@param action 'open'|'close'|'copy'
 local function select_server(action)
   -- Capture the workspace buffer before Telescope takes focus for its prompt.
   local focused_filename = vim.api.nvim_buf_get_name(0)
@@ -336,6 +356,7 @@ local function select_server(action)
         end
         vim.ui.select(choices, {
           prompt = action == 'open' and 'Open media server (Enter opens, Esc cancels)'
+            or action == 'copy' and 'Copy media server URL (Enter copies, Esc cancels)'
             or 'Close media server (Enter stops, Esc cancels)',
           format_item = function(server)
             local label = owned_server and server.instance == owned_server.instance and ' [this session]' or ''
@@ -347,6 +368,14 @@ local function select_server(action)
           end
           if action == 'open' then
             open_browser(server, initial_file(server.root, focused_filename))
+            return
+          end
+          if action == 'copy' then
+            local url = server_url_for(server.url, server.root, initial_file(server.root, focused_filename))
+            -- clipboard_copy never raises: on failure the INFO notification
+            -- below still carries the URL so the operator can copy it manually.
+            local _clipboard_failure = clipboard_copy(url)
+            vim.notify(url, vim.log.levels.INFO)
             return
           end
           local stop_ok, stop_failure = pcall(
@@ -401,6 +430,12 @@ function M.close()
   select_server 'close'
 end
 
+---List validated servers and copy the selected instance URL; Escape cancels.
+---@return nil
+function M.copy()
+  select_server 'copy'
+end
+
 ---Register commands and lifecycle cleanup without starting a server.
 ---@return nil
 ---@param configuration? MediaGlanceOptions
@@ -410,13 +445,14 @@ function M.setup(configuration)
     MediaGlanceOpen = M.open,
     MediaGlanceList = M.list,
     MediaGlanceClose = M.close,
+    MediaGlanceCopy = M.copy,
+    MediaCopy = M.copy,
     MediaGlanceInstall = M.install,
   }) do
-    vim.api.nvim_create_user_command(
-      name,
-      callback,
-      { desc = 'Workspace media: ' .. name:sub(12):lower(), force = true }
-    )
+    vim.api.nvim_create_user_command(name, callback, {
+      desc = 'Workspace media: ' .. name:gsub('^MediaGlance', ''):gsub('^Media', ''):lower(),
+      force = true,
+    })
   end
   local group = vim.api.nvim_create_augroup('MediaGlance', { clear = true })
   vim.api.nvim_create_autocmd(

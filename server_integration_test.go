@@ -278,6 +278,53 @@ func TestHTTPFilesAndProtection(t *testing.T) {
 	}
 }
 
+func TestFileSearchContainsSymlinksAndStopsDirectoryCycles(t *testing.T) {
+	v, address := fixture(t)
+	outside := t.TempDir()
+	for directory, file := range map[string]string{
+		filepath.Join(v.root, "real"): filepath.Join(v.root, "real", "inside.txt"),
+		outside:                       filepath.Join(outside, "secret.txt"),
+	} {
+		if err := os.MkdirAll(directory, 0700); err != nil {
+			t.Fatal(err)
+		}
+		data := "inside"
+		if directory == outside {
+			data = "outside"
+		}
+		if err := os.WriteFile(file, []byte(data), 0600); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := os.Symlink(filepath.Join(v.root, "real"), filepath.Join(v.root, "alias")); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(v.root, filepath.Join(v.root, "real", "cycle")); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(outside, filepath.Join(v.root, "outside")); err != nil {
+		t.Fatal(err)
+	}
+	status, data := request(t, address+"api/search?q=inside.txt")
+	if status != http.StatusOK {
+		t.Fatalf("search status=%d body=%s", status, data)
+	}
+	var result struct {
+		Entries    []searchEntry `json:"entries"`
+		Incomplete bool          `json:"incomplete"`
+	}
+	if err := json.Unmarshal(data, &result); err != nil {
+		t.Fatal(err)
+	}
+	if len(result.Entries) != 1 || result.Incomplete || (result.Entries[0].Path != "real/inside.txt" && result.Entries[0].Path != "alias/inside.txt") {
+		t.Fatalf("contained search results=%v incomplete=%t", result.Entries, result.Incomplete)
+	}
+	status, data = request(t, address+"api/search?q=secret.txt")
+	if status != http.StatusOK || strings.Contains(string(data), "secret.txt") {
+		t.Fatalf("outside target leaked through search: status=%d body=%s", status, data)
+	}
+}
+
 func TestRegistryLiveStaleAndUnverifiedStop(t *testing.T) {
 	v, address := fixture(t)
 	state := t.TempDir()

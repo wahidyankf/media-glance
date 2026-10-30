@@ -5,7 +5,9 @@ import (
 	"github.com/yuin/goldmark/ast"
 	"github.com/yuin/goldmark/renderer"
 	"github.com/yuin/goldmark/text"
+	"html"
 	"io"
+	"regexp"
 	"strings"
 	"testing"
 )
@@ -39,6 +41,73 @@ func TestRenderMarkdown(t *testing.T) {
 	}
 	if len(assets) != 1 || assets[0] != "img.svg" {
 		t.Fatalf("assets=%v", assets)
+	}
+}
+
+func TestRenderMarkdownHighlightsCodeFencesWithoutChangingText(t *testing.T) {
+	source := []byte("```go\n\tif value := \"<tag>\"; value != \"\" {\n\t\tprintln(value)\n\t}\n```\n")
+	result, _, err := RenderMarkdown(source, "example.md")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(result, `<span class="`) {
+		t.Fatalf("fenced Go code is not highlighted: %s", result)
+	}
+	if strings.Contains(result, "<tag>") || !strings.Contains(result, "&lt;tag&gt;") {
+		t.Fatalf("fenced source was not escaped: %s", result)
+	}
+	code := regexp.MustCompile(`(?s)<code\b[^>]*>(.*?)</code>`).FindStringSubmatch(result)
+	if len(code) != 2 {
+		t.Fatalf("highlighted code element missing: %s", result)
+	}
+	visible := regexp.MustCompile(`<[^>]*>`).ReplaceAllString(code[1], "")
+	if got := html.UnescapeString(visible); got != "\tif value := \"<tag>\"; value != \"\" {\n\t\tprintln(value)\n\t}\n" {
+		t.Errorf("highlighted code changed source text: got %q", got)
+	}
+}
+
+func TestRenderMarkdownKeepsUnknownCodeFencePlainAndMermaidSpecial(t *testing.T) {
+	source := []byte("```unknown-lang\n\t<safe>\n```\n\n```mermaid\ngraph TD; A-->B\n```\n")
+	result, _, err := RenderMarkdown(source, "example.md")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(result, "&lt;safe&gt;") || strings.Contains(result, "<safe>") {
+		t.Fatalf("unknown fence must fall back to escaped plaintext: %s", result)
+	}
+	if !strings.Contains(result, `<div class="mermaid"`) || !strings.Contains(result, `data-diagram="graph TD; A--&gt;B`) {
+		t.Fatalf("Mermaid fence no longer uses its special renderer: %s", result)
+	}
+}
+
+func TestRenderMarkdownEscapesCRLFInPlainCodeFences(t *testing.T) {
+	source := []byte("```unknown-lang\r\nfirst\r\n\tsecond\r\n```\r\n")
+	result, _, err := RenderMarkdown(source, "example.md")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(result, "&#13;") {
+		t.Fatalf("plain code fence contains literal carriage returns: %q", result)
+	}
+	code := regexp.MustCompile(`(?s)<code\b[^>]*>(.*?)</code>`).FindStringSubmatch(result)
+	if len(code) != 2 {
+		t.Fatalf("code element missing: %s", result)
+	}
+	visible := regexp.MustCompile(`<[^>]*>`).ReplaceAllString(code[1], "")
+	if got := html.UnescapeString(visible); got != "first\r\n\tsecond\r\n" {
+		t.Fatalf("plain fence text=%q, want original CRLF source", got)
+	}
+}
+
+func TestRenderMarkdownCapsTotalHighlightedFenceBytes(t *testing.T) {
+	code := strings.Repeat("x ", 35*1024) + "\n"
+	source := []byte("```go\n" + code + "```\n\n```go\n" + code + "```\n")
+	result, _, err := RenderMarkdown(source, "example.md")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if count := strings.Count(result, `<pre class="chroma`); count != 1 {
+		t.Fatalf("highlighted %d fences, want one under the aggregate limit", count)
 	}
 }
 

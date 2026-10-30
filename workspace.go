@@ -11,6 +11,7 @@ import (
 // beneath its opened directory even when a symlink changes after validation.
 type workspaceFiles interface {
 	Open(string) (io.ReadSeekCloser, error)
+	OpenDir(string) (fs.ReadDirFile, error)
 	Stat(string) (fs.FileInfo, error)
 	ReadDir(string) ([]os.DirEntry, error)
 	Close() error
@@ -23,8 +24,11 @@ type nativeRoot interface {
 type rootedWorkspace struct{ root nativeRoot }
 
 func (r *rootedWorkspace) Open(name string) (io.ReadSeekCloser, error) { return r.root.Open(name) }
-func (r *rootedWorkspace) Stat(name string) (fs.FileInfo, error)       { return r.root.Stat(name) }
-func (r *rootedWorkspace) Close() error                                { return r.root.Close() }
+func (r *rootedWorkspace) OpenDir(name string) (fs.ReadDirFile, error) {
+	return r.root.Open(name)
+}
+func (r *rootedWorkspace) Stat(name string) (fs.FileInfo, error) { return r.root.Stat(name) }
+func (r *rootedWorkspace) Close() error                          { return r.root.Close() }
 func (r *rootedWorkspace) ReadDir(name string) ([]os.DirEntry, error) {
 	directory, e := r.root.Open(name)
 	if e != nil {
@@ -73,6 +77,13 @@ func (v *viewer) readDirectory(path string) ([]os.DirEntry, error) {
 		return nil, e
 	}
 	return v.files.ReadDir(relative)
+}
+func (v *viewer) openDirectory(path string) (fs.ReadDirFile, error) {
+	relative, e := host.rel(v.root, path)
+	if e != nil {
+		return nil, e
+	}
+	return v.files.OpenDir(relative)
 }
 func (v *viewer) readContent(path string) ([]byte, error) {
 	file, e := v.open(path)
