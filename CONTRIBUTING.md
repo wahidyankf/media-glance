@@ -87,5 +87,6 @@ and review the expected Mermaid math chunk before updating renderer pins.
 
 Tag CI waits for the complete matrix before uploading the `release-binaries` artifact; it does not publish a
 GitHub release automatically. A maintainer verifies the artifact checksums and expected platforms before attaching
-executables, checksums, the MIT license, and third-party notices to the matching release. The release binary and
-Lua installer must agree on version and protocol.
+executables, checksums, the MIT license, and third-party notices to the matching release. The artifact expires 2 days
+after the tag run, so verification and attaching must finish inside that window. The release binary and Lua installer
+must agree on version and protocol.
