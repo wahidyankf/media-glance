@@ -96,3 +96,5 @@ jobs:
           name: release-binaries
           path: dist/*
           if-no-files-found: error
+          # Matches the repository artifact retention cap: the window to verify and attach files to the release.
+          retention-days: 2

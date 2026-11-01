@@ -15,7 +15,8 @@ come from `npm ci`; the browser uses the project-local Playwright cache.
 
 On release-tag runs, the `release-build` job waits for every complete gate to pass. It builds four standalone
 executables for macOS/Linux on arm64/amd64, plus the checksum manifest and individual checksum files, and uploads
-them as the `release-binaries` workflow artifact. Publishing a GitHub release is a separate maintainer action;
+them as the `release-binaries` workflow artifact. That artifact expires 2 days after the tag run, so verification and
+attaching must finish inside that window. Publishing a GitHub release is a separate maintainer action;
 the workflow does not create one automatically. See [contributor release guidance](../../CONTRIBUTING.md#releases).
 
 The product landing page is the repository's [root README](../../README.md). Automation documentation lives here
