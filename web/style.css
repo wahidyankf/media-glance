@@ -110,6 +110,15 @@ header {
   display: grid;
   grid-template-columns: 17rem minmax(0, 1fr);
 }
+.layout[data-sidebar="collapsed"] {
+  grid-template-columns: 0 minmax(0, 1fr);
+}
+.layout[data-sidebar="collapsed"] nav {
+  display: none;
+}
+.layout[data-sidebar="collapsed"] main {
+  grid-column: 2;
+}
 nav {
   overflow: auto;
   padding: 0.7rem 0.45rem;
@@ -142,7 +151,8 @@ button {
   color: inherit;
   cursor: pointer;
 }
-.theme-toggle {
+.theme-toggle,
+.sidebar-toggle {
   flex: none;
   min-height: 44px;
   padding: 0.2rem 0.65rem;
@@ -151,7 +161,8 @@ button {
   background: var(--page);
   font: inherit;
 }
-.theme-toggle:hover {
+.theme-toggle:hover,
+.sidebar-toggle:hover {
   background: var(--selected);
 }
 .search-files,

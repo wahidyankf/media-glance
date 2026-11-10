@@ -267,6 +267,99 @@ test("system theme, manual persistence, diagram rendering and expanded media sur
   }
 });
 
+test("sidebar toggle hides the explorer, keeps document scroll, and persists across reloads", async ({
+  page,
+}) => {
+  const fixture = createFixture(resolve("build/media-glance"));
+  try {
+    const ready = await fixture.ready;
+    const info = await (
+      await page.request.get(new URL("info", ready.fixtureUrl).href)
+    ).json();
+    // The app subscribes to live updates only after its initial render has
+    // settled. Dropping the stream's open listener keeps the open-triggered
+    // refresh from restoring an older document scroll during this case.
+    await page.addInitScript(() => {
+      const Source = globalThis.EventSource;
+      globalThis.EventSource = class extends Source {
+        addEventListener(type, listener, options) {
+          if (type === "open") {
+            globalThis.liveSubscribed = true;
+            return;
+          }
+          super.addEventListener(type, listener, options);
+        }
+      };
+    });
+    await page.goto(info.viewerUrl);
+    await page.waitForFunction(() => globalThis.liveSubscribed);
+    const layout = page.locator(".layout");
+    const shown = page.getByRole("button", {
+      name: "Hide sidebar",
+      exact: true,
+    });
+    await expect(shown).toHaveAttribute("aria-controls", "sidebar");
+    await expect(shown).toHaveAttribute("aria-expanded", "true");
+    await expect(layout).toHaveAttribute("data-sidebar", "shown");
+    const scrollTop = () =>
+      page.evaluate(
+        () => globalThis.document.querySelector("#panel").scrollTop,
+      );
+    await page.evaluate(() => {
+      globalThis.document.querySelector("#panel").scrollTop = 240;
+    });
+    const before = await scrollTop();
+    expect(before).toBeGreaterThan(0);
+    await shown.click();
+    await expect(layout).toHaveAttribute("data-sidebar", "collapsed");
+    await expect(
+      page.getByRole("button", { name: "Show sidebar", exact: true }),
+    ).toHaveAttribute("aria-expanded", "false");
+    await expect(page.locator("#sidebar")).toBeHidden();
+    expect(await scrollTop()).toBe(before);
+    expect(
+      await page.evaluate(
+        () =>
+          globalThis.document.querySelector("#panel").getBoundingClientRect()
+            .width -
+          globalThis.document.querySelector(".layout").getBoundingClientRect()
+            .width,
+      ),
+    ).toBe(0);
+    await page
+      .getByRole("button", { name: "Show sidebar", exact: true })
+      .click();
+    await expect(layout).toHaveAttribute("data-sidebar", "shown");
+    expect(await scrollTop()).toBe(before);
+    await page
+      .getByRole("button", { name: "Hide sidebar", exact: true })
+      .click();
+    await page.reload();
+    await expect(layout).toHaveAttribute("data-sidebar", "collapsed");
+    expect(
+      await page.evaluate(() =>
+        globalThis.localStorage.getItem("media-glance.sidebar"),
+      ),
+    ).toBe("hidden");
+    await page
+      .getByRole("button", { name: "Show sidebar", exact: true })
+      .click();
+    await expect(layout).toHaveAttribute("data-sidebar", "shown");
+    expect(
+      await page.evaluate(() =>
+        globalThis.localStorage.getItem("media-glance.sidebar"),
+      ),
+    ).toBe("shown");
+    await page.reload();
+    await expect(layout).toHaveAttribute("data-sidebar", "shown");
+    await expect(page.locator("#sidebar")).toBeVisible();
+  } finally {
+    const stopped = await fixture.stop();
+    expect(stopped.code, stopped.stderr).toBe(0);
+    expect(stopped.cleanup?.cleanup).toBe("complete");
+  }
+});
+
 test("explicit ER fills and label colors remain readable while unstyled rows keep theme stripes", async ({
   page,
 }) => {

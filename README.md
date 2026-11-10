@@ -23,6 +23,7 @@ light mode. All sample content is invented. See the [recording details](docs/ass
   fallback for unknown or oversized files.
 - 🔍 **Find files quickly.** Press **⌘K** on macOS or **Ctrl+K** on Windows/Linux to search filenames and paths,
   including files in collapsed folders.
+- 🧭 **Hide the explorer for more room.** Use the header button, or **⌘B** on macOS and **Ctrl+B** on Windows/Linux.
 - 🔎 **Enlarge the media, keep the text size.** Zoom each image or diagram, fit it, or open an expanded view.
 - 🔄 **See changes from outside Neovim.** Saved and atomic file replacements refresh the preview.
 - 🧩 **Keep sessions independent.** Each Neovim session owns its server; exiting the editor stops it. Pick a running
@@ -126,7 +127,8 @@ Fenced code blocks and recognized source files have syntax highlighting and a **
 exact source, including tabs and newlines, and reports success or failure beside the button. Unknown languages and
 oversized files remain plain text. The browser file finder opens with **⌘K** on macOS or **Ctrl+K** on
 Windows/Linux; it searches names and relative paths in collapsed folders too. These browser shortcuts do not add
-Neovim mappings. Theme selection stays in the page header; expanded media has only its media controls.
+Neovim mappings. The page header holds the sidebar toggle and theme selection; expanded media has only its media
+controls.
 
 Mermaid labels use semibold text and follow the selected light or dark theme. Explicit colors and font weights in a
 diagram remain in effect.
@@ -140,6 +142,10 @@ The sidebar loads folders as you expand them. Live updates watch the selected fi
 visible directories rather than recursively indexing the entire workspace. The explorer skips `.git`,
 `node_modules`, `.cache`, and `worktrees`. See [supported media and limits](docs/reference/preview-behavior.md)
 for file types, browser codec requirements, and watcher limits.
+
+The sidebar can be hidden with **Hide sidebar** in the header, or with **⌘B** on macOS and **Ctrl+B** on
+Windows/Linux. The browser remembers a hidden sidebar for this viewer origin, and the document keeps its scroll
+position.
 
 ## Configuration
 

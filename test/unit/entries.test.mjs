@@ -4,7 +4,7 @@ import { JSDOM } from "jsdom";
 
 test("browser module entry initializes and releases the native window controller", async () => {
   const dom = new JSDOM(
-    '<b id="workspace"></b><span id="status"></span><button id="theme-toggle" type="button">Light mode</button><button id="search-files" type="button">Search files</button><dialog id="file-finder"><input id="file-finder-query"><p id="file-finder-status"></p><div id="file-finder-results"></div><button id="file-finder-close" type="button">Close</button></dialog><nav><div id="tree"></div></nav><main id="panel"></main>',
+    '<button id="sidebar-toggle" type="button" aria-controls="sidebar" aria-expanded="true">Hide sidebar</button><b id="workspace"></b><span id="status"></span><button id="theme-toggle" type="button">Light mode</button><button id="search-files" type="button">Search files</button><dialog id="file-finder"><input id="file-finder-query"><p id="file-finder-status"></p><div id="file-finder-results"></div><button id="file-finder-close" type="button">Close</button></dialog><div class="layout"><nav id="sidebar"><div id="tree"></div></nav><main id="panel"></main></div>',
     { url: "http://127.0.0.1:57300/v/token/" },
   );
   const w = dom.window;

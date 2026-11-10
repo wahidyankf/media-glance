@@ -5,6 +5,7 @@ These shortcuts apply while the media-glance browser viewer is open. They do not
 | Action                  | macOS  | Windows/Linux |
 | ----------------------- | ------ | ------------- |
 | Open file finder        | ⌘K     | Ctrl+K        |
+| Show or hide sidebar    | ⌘B     | Ctrl+B        |
 | Move through results    | ↑ / ↓  | ↑ / ↓         |
 | Open selected file      | Enter  | Enter         |
 | Close finder or overlay | Escape | Escape        |
@@ -12,3 +13,6 @@ These shortcuts apply while the media-glance browser viewer is open. They do not
 Typing in the finder searches saved files by filename or relative path. When no result is selected, Enter opens the
 first match. Closing the finder restores focus to the control that opened it. The media overlay also closes with
 Escape.
+
+The sidebar shortcut hides or shows the explorer. It does nothing while the finder is open, while focus is in a text
+field, or when other modifier keys are held.
