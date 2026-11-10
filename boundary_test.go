@@ -171,7 +171,7 @@ func TestResolveDecisionErrors(t *testing.T) {
 }
 func TestHTTPRoutingAndPreview(t *testing.T) {
 	v := unitViewer(t)
-	for _, route := range []string{"", "index.html", "app.js", "media.js", "start.js", "style.css", "api/info", "api/tree", "api/tree?path=docs", "api/file?path=README.md", "api/file?path=z.txt", "api/file?path=assets/x.png", "api/file?path=unknown", "api/file?path=big.txt", "api/raw?path=x.html", "api/raw?path=unknown&download=1", "vendor/mermaid.esm.min.mjs", "vendor/chunks/mermaid.esm.min/katex-C5OPUE3Q.mjs"} {
+	for _, route := range []string{"", "index.html", "app.js", "media.js", "start.js", "sidebar-width.js", "style.css", "api/info", "api/tree", "api/tree?path=docs", "api/file?path=README.md", "api/file?path=z.txt", "api/file?path=assets/x.png", "api/file?path=unknown", "api/file?path=big.txt", "api/raw?path=x.html", "api/raw?path=unknown&download=1", "vendor/mermaid.esm.min.mjs", "vendor/chunks/mermaid.esm.min/katex-C5OPUE3Q.mjs"} {
 		unitResponse(t, v, "GET", route, 200)
 	}
 	unitResponse(t, v, "HEAD", "api/raw?path=z.txt", 200)

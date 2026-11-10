@@ -100,7 +100,8 @@ and supported math. Bundled assets keep these renderers available offline.
 Filesystem updates from editors or agents refresh the browser without reopening.
 Hide sidebar in the header, or Cmd-B on macOS and Ctrl-B on Windows/Linux,
 collapses the explorer. The choice is saved for this browser origin, and the
-document keeps its scroll position.
+document keeps its scroll position. Drag the explorer's right edge to resize it;
+double-click the edge to restore the default width. The width is saved too.
 
 Press Cmd-K on macOS or Ctrl-K on Windows/Linux to find a saved file by name or
 relative path. Up/Down moves through results, Enter opens, and Escape closes

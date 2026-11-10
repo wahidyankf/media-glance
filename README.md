@@ -145,7 +145,8 @@ for file types, browser codec requirements, and watcher limits.
 
 The sidebar can be hidden with **Hide sidebar** in the header, or with **⌘B** on macOS and **Ctrl+B** on
 Windows/Linux. The browser remembers a hidden sidebar for this viewer origin, and the document keeps its scroll
-position.
+position. Drag the sidebar's right edge to resize it, or double-click the edge to restore the default width; the
+width is remembered for this viewer origin.
 
 ## Configuration
 

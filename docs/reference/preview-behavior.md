@@ -109,6 +109,10 @@ document fills the width. The choice is remembered for this viewer origin, and d
 of showing the explorer. Hiding does not stop folder watching or live updates, and the document keeps its scroll
 position.
 
+Drag the explorer's right edge to change its width, or double-click the edge to restore the default 17rem. The width
+stays between 11rem and the smaller of 40rem or 60% of the window, and it follows window resizes. The width is
+remembered for this viewer origin, and denied browser storage keeps the default for the current tab.
+
 Each browser event stream watches the root, expanded directories and their ancestors, the selected file's parent,
 and local referenced assets' parents, including in-workspace symlink targets. It watches at most **256 directory
 paths**. It does not recursively subscribe to every file in the workspace. Excess paths can fall outside the watch
