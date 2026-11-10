@@ -6,7 +6,7 @@ import { mediaViewers } from "../../web/media.js";
 
 function fixture(files = {}, tree = []) {
   const dom = new JSDOM(
-    '<header><button id="sidebar-toggle" type="button" aria-controls="sidebar" aria-expanded="true">Hide sidebar</button><b id="workspace"></b><span id="status"></span><button id="search-files" type="button">Search files</button><button id="theme-toggle" type="button">Light mode</button></header><dialog id="file-finder" aria-labelledby="file-finder-title"><h2 id="file-finder-title">Search files</h2><label for="file-finder-query">File name or path</label><input id="file-finder-query" type="search" aria-controls="file-finder-results" /><p id="file-finder-status" role="status"></p><div id="file-finder-results" role="listbox" aria-label="Files"></div><button id="file-finder-close" type="button">Close</button></dialog><div class="layout"><nav id="sidebar"><div id="tree"></div></nav><main id="panel"></main></div>',
+    '<header><button id="sidebar-toggle" type="button" aria-controls="sidebar" aria-expanded="true">Hide sidebar</button><b id="workspace"></b><span id="status"></span><button id="search-files" type="button">Search files</button><button id="theme-toggle" type="button">Light mode</button></header><dialog id="file-finder" aria-labelledby="file-finder-title"><h2 id="file-finder-title">Search files</h2><label for="file-finder-query">File name or path</label><input id="file-finder-query" type="search" aria-controls="file-finder-results" /><p id="file-finder-status" role="status"></p><div id="file-finder-results" role="listbox" aria-label="Files"></div><button id="file-finder-close" type="button">Close</button></dialog><div class="layout"><nav id="sidebar"><div id="tree"></div></nav><div id="sidebar-resizer" role="separator" aria-orientation="vertical" aria-controls="sidebar" aria-label="Resize sidebar" aria-valuemin="176" aria-valuemax="640" aria-valuenow="272" tabindex="0"></div><main id="panel"></main></div>',
     { url: "http://127.0.0.1:57300/v/token/?file=doc.md" },
   );
   const w = dom.window;
@@ -1631,5 +1631,283 @@ test("disposed sidebar controls cannot toggle, persist, or prevent shortcuts", a
     "disposed shortcut must stop reacting",
   );
   assert.equal(event.defaultPrevented, false);
+  f.dom.window.close();
+});
+
+const widthKey = "media-glance.sidebar-width";
+function resizerWidth(w) {
+  return w.document
+    .querySelector(".layout")
+    .style.getPropertyValue("--sidebar-width");
+}
+function pointerEvent(w, type, init = {}) {
+  return new w.PointerEvent(type, {
+    bubbles: true,
+    cancelable: true,
+    pointerId: 7,
+    isPrimary: true,
+    button: 0,
+    ...init,
+  });
+}
+function keyEvent(w, key, init = {}) {
+  return new w.KeyboardEvent("keydown", {
+    key,
+    bubbles: true,
+    cancelable: true,
+    ...init,
+  });
+}
+function stubPointerCapture(w, { releaseThrows = false } = {}) {
+  const log = { captured: [], released: [] };
+  w.HTMLElement.prototype.setPointerCapture = function (id) {
+    log.captured.push(id);
+  };
+  w.HTMLElement.prototype.releasePointerCapture = function (id) {
+    if (releaseThrows) throw new Error("NotFoundError");
+    log.released.push(id);
+  };
+  return log;
+}
+async function resizerApp({
+  saved,
+  denied = false,
+  narrow = false,
+  releaseThrows = false,
+} = {}) {
+  const f = fixture({ "doc.md": markdown("Resizer fixture") });
+  const capture = stubPointerCapture(f.w, { releaseThrows });
+  if (saved !== undefined) f.w.localStorage.setItem(widthKey, saved);
+  if (denied)
+    Object.defineProperty(f.w, "localStorage", {
+      get() {
+        throw new Error("storage denied");
+      },
+    });
+  if (narrow)
+    f.w.matchMedia = (query) => ({ matches: query === "(max-width: 700px)" });
+  const app = await boot(f.w);
+  return {
+    f,
+    app,
+    capture,
+    w: f.w,
+    layout: f.w.document.querySelector(".layout"),
+    handle: f.w.document.getElementById("sidebar-resizer"),
+  };
+}
+
+test("sidebar resizer restores a saved width within the limits and uses the default for invalid values", async () => {
+  for (const scenario of [
+    { saved: "300", width: "300px", now: "300" },
+    { saved: "9999", width: "614px", now: "614" },
+    { saved: "5", width: "176px", now: "176" },
+    { saved: "wide", width: "", now: "272" },
+    { width: "", now: "272" },
+  ]) {
+    const { f, app, handle } = await resizerApp({ saved: scenario.saved });
+    assert.equal(resizerWidth(f.w), scenario.width, `saved ${scenario.saved}`);
+    assert.equal(handle.getAttribute("aria-valuenow"), scenario.now);
+    assert.equal(handle.getAttribute("aria-valuemin"), "176");
+    assert.equal(handle.getAttribute("aria-valuemax"), "614");
+    app.dispose();
+    f.dom.window.close();
+  }
+});
+
+test("sidebar resizer reports the 11rem default on narrow viewports when no width is saved", async () => {
+  const { f, app, handle } = await resizerApp({ narrow: true });
+  assert.equal(resizerWidth(f.w), "");
+  assert.equal(handle.getAttribute("aria-valuenow"), "176");
+  app.dispose();
+  f.dom.window.close();
+});
+
+test("sidebar resizer keeps working for this tab when storage is denied", async () => {
+  const { f, app, handle } = await resizerApp({ denied: true });
+  const w = f.w;
+  assert.equal(resizerWidth(w), "");
+  handle.dispatchEvent(pointerEvent(w, "pointerdown", { clientX: 272 }));
+  handle.dispatchEvent(pointerEvent(w, "pointermove", { clientX: 300 }));
+  handle.dispatchEvent(pointerEvent(w, "pointerup", { clientX: 300 }));
+  assert.equal(resizerWidth(w), "300px");
+  app.dispose();
+  f.dom.window.close();
+});
+
+test("sidebar resizer follows a pointer drag, marks the layout while dragging, and saves the width on release", async () => {
+  const { f, app, handle, layout, capture } = await resizerApp();
+  const w = f.w;
+  handle.dispatchEvent(pointerEvent(w, "pointerdown", { clientX: 272 }));
+  assert.equal(layout.dataset.resizing, "", "a drag marks the layout");
+  handle.dispatchEvent(pointerEvent(w, "pointermove", { clientX: 332 }));
+  assert.equal(resizerWidth(w), "332px");
+  assert.equal(handle.getAttribute("aria-valuenow"), "332");
+  handle.dispatchEvent(pointerEvent(w, "pointerup", { clientX: 332 }));
+  assert.equal(layout.hasAttribute("data-resizing"), false);
+  assert.deepEqual(capture.captured, [7]);
+  assert.deepEqual(capture.released, [7]);
+  assert.equal(w.localStorage.getItem(widthKey), "332");
+  app.dispose();
+  f.dom.window.close();
+});
+
+test("sidebar resizer ends a cancelled drag, ignores later moves, and still saves when the capture is already released", async () => {
+  const { f, app, handle, layout } = await resizerApp({ releaseThrows: true });
+  const w = f.w;
+  handle.dispatchEvent(pointerEvent(w, "pointerdown", { clientX: 272 }));
+  handle.dispatchEvent(pointerEvent(w, "pointermove", { clientX: 300 }));
+  handle.dispatchEvent(pointerEvent(w, "pointercancel", { clientX: 300 }));
+  assert.equal(layout.hasAttribute("data-resizing"), false);
+  handle.dispatchEvent(pointerEvent(w, "pointermove", { clientX: 400 }));
+  assert.equal(resizerWidth(w), "300px");
+  assert.equal(w.localStorage.getItem(widthKey), "300");
+  app.dispose();
+  f.dom.window.close();
+});
+
+test("sidebar resizer ignores secondary buttons, non-primary pointers, and pointers that did not start the drag", async () => {
+  const { f, app, handle, layout } = await resizerApp();
+  const w = f.w;
+  handle.dispatchEvent(pointerEvent(w, "pointermove", { clientX: 400 }));
+  handle.dispatchEvent(pointerEvent(w, "pointerup", { clientX: 400 }));
+  assert.equal(resizerWidth(w), "", "moves without a drag change nothing");
+  assert.equal(
+    w.localStorage.getItem(widthKey),
+    null,
+    "a release without a drag saves nothing",
+  );
+  handle.dispatchEvent(
+    pointerEvent(w, "pointerdown", { clientX: 272, button: 2 }),
+  );
+  handle.dispatchEvent(
+    pointerEvent(w, "pointerdown", { clientX: 272, isPrimary: false }),
+  );
+  assert.equal(layout.hasAttribute("data-resizing"), false);
+  handle.dispatchEvent(pointerEvent(w, "pointerdown", { clientX: 272 }));
+  handle.dispatchEvent(
+    pointerEvent(w, "pointermove", { clientX: 400, pointerId: 9 }),
+  );
+  assert.equal(
+    resizerWidth(w),
+    "",
+    "another pointer does not move the sidebar",
+  );
+  handle.dispatchEvent(
+    pointerEvent(w, "pointerup", { clientX: 400, pointerId: 9 }),
+  );
+  assert.equal(layout.dataset.resizing, "", "another pointer does not end it");
+  handle.dispatchEvent(pointerEvent(w, "pointerup", { clientX: 300 }));
+  assert.equal(layout.hasAttribute("data-resizing"), false);
+  app.dispose();
+  f.dom.window.close();
+});
+
+test("sidebar resizer drag clamps the width at both the minimum and the maximum", async () => {
+  const { f, app, handle } = await resizerApp();
+  const w = f.w;
+  handle.dispatchEvent(pointerEvent(w, "pointerdown", { clientX: 272 }));
+  handle.dispatchEvent(pointerEvent(w, "pointermove", { clientX: 2000 }));
+  assert.equal(resizerWidth(w), "614px");
+  assert.equal(handle.getAttribute("aria-valuenow"), "614");
+  handle.dispatchEvent(pointerEvent(w, "pointermove", { clientX: -2000 }));
+  assert.equal(resizerWidth(w), "176px");
+  handle.dispatchEvent(pointerEvent(w, "pointerup", { clientX: -2000 }));
+  app.dispose();
+  f.dom.window.close();
+});
+
+test("sidebar resizer keyboard keys step the width, Shift steps further, Home and End reach the limits, and other keys are ignored", async () => {
+  const { f, app, handle } = await resizerApp();
+  const w = f.w;
+  for (const [key, shiftKey, expected] of [
+    ["ArrowRight", false, "288px"],
+    ["ArrowRight", true, "352px"],
+    ["ArrowLeft", false, "336px"],
+    ["ArrowLeft", true, "272px"],
+    ["Home", false, "176px"],
+    ["End", false, "614px"],
+  ]) {
+    const event = keyEvent(w, key, { shiftKey });
+    handle.dispatchEvent(event);
+    assert.equal(
+      resizerWidth(w),
+      expected,
+      `${shiftKey ? "Shift+" : ""}${key}`,
+    );
+    assert.equal(event.defaultPrevented, true, `${key} is handled`);
+  }
+  assert.equal(w.localStorage.getItem(widthKey), "614");
+  const other = keyEvent(w, "a");
+  handle.dispatchEvent(other);
+  assert.equal(resizerWidth(w), "614px");
+  assert.equal(other.defaultPrevented, false);
+  app.dispose();
+  f.dom.window.close();
+});
+
+test("sidebar resizer double-click resets to the default width and forgets the saved width", async () => {
+  const { f, app, handle } = await resizerApp();
+  const w = f.w;
+  handle.dispatchEvent(keyEvent(w, "Home"));
+  assert.equal(w.localStorage.getItem(widthKey), "176");
+  handle.dispatchEvent(new w.MouseEvent("dblclick", { bubbles: true }));
+  assert.equal(resizerWidth(w), "");
+  assert.equal(handle.getAttribute("aria-valuenow"), "272");
+  assert.equal(w.localStorage.getItem(widthKey), null);
+  app.dispose();
+  f.dom.window.close();
+});
+
+test("sidebar resizer re-clamps a dragged width when the window narrows and leaves the default alone", async () => {
+  const { f, app, handle } = await resizerApp();
+  const w = f.w;
+  handle.dispatchEvent(keyEvent(w, "End"));
+  w.innerWidth = 500;
+  w.dispatchEvent(new w.Event("resize"));
+  assert.equal(resizerWidth(w), "300px");
+  assert.equal(handle.getAttribute("aria-valuemax"), "300");
+  app.dispose();
+  f.dom.window.close();
+  const next = await resizerApp();
+  next.w.innerWidth = 500;
+  next.w.dispatchEvent(new next.w.Event("resize"));
+  assert.equal(resizerWidth(next.w), "");
+  assert.equal(next.handle.getAttribute("aria-valuemax"), "300");
+  next.app.dispose();
+  next.f.dom.window.close();
+});
+
+test("sidebar resizer is hidden and out of the tab order while collapsed, and keeps its width on expand", async () => {
+  const { f, app, handle } = await resizerApp();
+  const w = f.w;
+  const toggle = w.document.getElementById("sidebar-toggle");
+  handle.dispatchEvent(keyEvent(w, "Home"));
+  toggle.click();
+  await settle();
+  assert.equal(handle.hidden, true);
+  assert.equal(handle.getAttribute("tabindex"), "-1");
+  toggle.click();
+  await settle();
+  assert.equal(handle.hidden, false);
+  assert.equal(handle.getAttribute("tabindex"), "0");
+  assert.equal(resizerWidth(w), "176px");
+  app.dispose();
+  f.dom.window.close();
+});
+
+test("sidebar resizer stops reacting to keys, pointers, double-clicks, and window resizes after dispose", async () => {
+  const { f, app, handle } = await resizerApp();
+  const w = f.w;
+  app.dispose();
+  handle.dispatchEvent(keyEvent(w, "Home"));
+  handle.dispatchEvent(pointerEvent(w, "pointerdown", { clientX: 272 }));
+  handle.dispatchEvent(pointerEvent(w, "pointermove", { clientX: 400 }));
+  handle.dispatchEvent(new w.MouseEvent("dblclick", { bubbles: true }));
+  w.innerWidth = 500;
+  w.dispatchEvent(new w.Event("resize"));
+  assert.equal(resizerWidth(w), "");
+  assert.equal(handle.getAttribute("aria-valuemax"), "614");
+  assert.equal(w.localStorage.getItem(widthKey), null);
   f.dom.window.close();
 });

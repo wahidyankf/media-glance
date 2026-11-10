@@ -32,7 +32,9 @@ commands look in a different registry.
 
 There are no default mappings, port options, or automatic Git-root detection. Server selection uses `vim.ui.select`.
 The browser shortcuts are **⌘K** for the file finder and **⌘B** for the sidebar on macOS. On Windows/Linux they are
-**Ctrl+K** and **Ctrl+B**. They do not add a Neovim mapping. See [viewer shortcuts](shortcuts.md).
+**Ctrl+K** and **Ctrl+B**. They do not add a Neovim mapping. See [viewer shortcuts](shortcuts.md). The browser
+stores the sidebar visibility as `media-glance.sidebar` and a dragged sidebar width in CSS pixels as
+`media-glance.sidebar-width`, both per viewer origin.
 
 ## Commands and functions
 

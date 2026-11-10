@@ -1,5 +1,12 @@
 import { createFileFinder } from "./finder.js";
 import { mediaViewers } from "./media.js";
+import {
+  clampWidth,
+  nextWidth,
+  parseSavedWidth,
+  SIDEBAR_WIDTH_KEY,
+  widthLimits,
+} from "./sidebar-width.js";
 
 export async function boot(host) {
   const {
@@ -47,6 +54,7 @@ export async function boot(host) {
   applyTheme();
   const sidebarToggle = document.querySelector("#sidebar-toggle");
   const layout = document.querySelector(".layout");
+  const sidebarResizer = document.querySelector("#sidebar-resizer");
   const finderDialog = document.querySelector("#file-finder");
   const apple = /Mac|iPhone|iPad|iPod/.test(host.navigator.platform);
   const editableTarget =
@@ -63,8 +71,53 @@ export async function boot(host) {
     layout.dataset.sidebar = shown ? "shown" : "collapsed";
     sidebarToggle.setAttribute("aria-expanded", String(shown));
     sidebarToggle.textContent = shown ? "Hide sidebar" : "Show sidebar";
+    sidebarResizer.hidden = !shown;
+    sidebarResizer.tabIndex = shown ? 0 : -1;
+  }
+  function sidebarLimits() {
+    const rootPx = parseFloat(
+      host.getComputedStyle(document.documentElement).fontSize,
+    );
+    return widthLimits(host.innerWidth, rootPx || 16);
+  }
+  // null keeps the stylesheet default; a number is a dragged or saved width in px.
+  let sidebarWidth = null;
+  try {
+    sidebarWidth = parseSavedWidth(
+      host.localStorage.getItem(SIDEBAR_WIDTH_KEY),
+      sidebarLimits(),
+    );
+  } catch {
+    // Storage can be denied; the stylesheet default still works for this tab.
+  }
+  function currentSidebarWidth(limits = sidebarLimits()) {
+    if (sidebarWidth !== null) return sidebarWidth;
+    return host.matchMedia("(max-width: 700px)").matches
+      ? limits.min
+      : limits.fallback;
+  }
+  function applySidebarWidth() {
+    const limits = sidebarLimits();
+    if (sidebarWidth === null) layout.style.removeProperty("--sidebar-width");
+    else layout.style.setProperty("--sidebar-width", `${sidebarWidth}px`);
+    sidebarResizer.setAttribute("aria-valuemin", String(limits.min));
+    sidebarResizer.setAttribute("aria-valuemax", String(limits.max));
+    sidebarResizer.setAttribute(
+      "aria-valuenow",
+      String(currentSidebarWidth(limits)),
+    );
+  }
+  function saveSidebarWidth() {
+    try {
+      if (sidebarWidth === null)
+        host.localStorage.removeItem(SIDEBAR_WIDTH_KEY);
+      else host.localStorage.setItem(SIDEBAR_WIDTH_KEY, String(sidebarWidth));
+    } catch {
+      // Keep the width for this tab when persistence is denied.
+    }
   }
   applySidebar();
+  applySidebarWidth();
   const expanded = new Set([""]);
   let selected = new URL(location.href).searchParams.get("file") ?? "";
   let source;
@@ -532,6 +585,87 @@ export async function boot(host) {
   document.addEventListener("keydown", sidebarShortcut, {
     signal: lifetime.signal,
   });
+  let drag = null;
+  sidebarResizer.addEventListener(
+    "pointerdown",
+    (event) => {
+      if (!event.isPrimary || event.button !== 0) return;
+      drag = {
+        pointerId: event.pointerId,
+        startX: event.clientX,
+        startWidth: currentSidebarWidth(),
+      };
+      sidebarResizer.setPointerCapture(event.pointerId);
+      layout.dataset.resizing = "";
+      event.preventDefault();
+    },
+    { signal: lifetime.signal },
+  );
+  sidebarResizer.addEventListener(
+    "pointermove",
+    (event) => {
+      if (drag?.pointerId !== event.pointerId) return;
+      sidebarWidth = clampWidth(
+        drag.startWidth + event.clientX - drag.startX,
+        sidebarLimits(),
+      );
+      applySidebarWidth();
+    },
+    { signal: lifetime.signal },
+  );
+  function endDrag(event) {
+    if (drag?.pointerId !== event.pointerId) return;
+    drag = null;
+    delete layout.dataset.resizing;
+    try {
+      sidebarResizer.releasePointerCapture(event.pointerId);
+    } catch {
+      // The browser already released the capture when the pointer went away.
+    }
+    saveSidebarWidth();
+  }
+  sidebarResizer.addEventListener("pointerup", endDrag, {
+    signal: lifetime.signal,
+  });
+  sidebarResizer.addEventListener("pointercancel", endDrag, {
+    signal: lifetime.signal,
+  });
+  sidebarResizer.addEventListener(
+    "dblclick",
+    () => {
+      sidebarWidth = null;
+      applySidebarWidth();
+      saveSidebarWidth();
+    },
+    { signal: lifetime.signal },
+  );
+  sidebarResizer.addEventListener(
+    "keydown",
+    (event) => {
+      const limits = sidebarLimits();
+      const next = nextWidth(
+        currentSidebarWidth(limits),
+        event.key,
+        event.shiftKey,
+        limits,
+      );
+      if (next === null) return;
+      event.preventDefault();
+      sidebarWidth = next;
+      applySidebarWidth();
+      saveSidebarWidth();
+    },
+    { signal: lifetime.signal },
+  );
+  window.addEventListener(
+    "resize",
+    () => {
+      if (sidebarWidth !== null)
+        sidebarWidth = clampWidth(sidebarWidth, sidebarLimits());
+      applySidebarWidth();
+    },
+    { signal: lifetime.signal },
+  );
   document.addEventListener(
     "click",
     async (event) => {

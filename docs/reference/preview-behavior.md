@@ -104,10 +104,15 @@ Those omissions affect navigation, not permission to access a known file path.
 Opening reveals the focused file and expands its ancestor folders. Ordinary live refresh preserves sidebar scroll
 and document scroll instead of recentering the explorer on every update.
 
-The header's **Hide sidebar** button, or **⌘B** on macOS and **Ctrl+B** on Windows/Linux, collapses the explorer so the
-document fills the width. The choice is remembered for this viewer origin, and denied browser storage keeps the default
-of showing the explorer. Hiding does not stop folder watching or live updates, and the document keeps its scroll
-position.
+The header's **Hide sidebar** button, or **⌘B** on macOS and **Ctrl+B** on Windows/Linux, collapses the explorer so
+the document fills the width. The choice is remembered for this viewer origin, and denied browser storage keeps the
+default of showing the explorer. Hiding does not stop folder watching or live updates, and the document keeps its
+scroll position.
+
+Drag the explorer's right edge to change its width, or double-click the edge to restore the default width: 17rem, or
+11rem in a window 700px wide or narrower. The width stays between 11rem and the smaller of 40rem or 60% of the window,
+and it follows window resizes. The width is
+remembered for this viewer origin, and denied browser storage keeps the default for the current tab.
 
 Each browser event stream watches the root, expanded directories and their ancestors, the selected file's parent,
 and local referenced assets' parents, including in-workspace symlink targets. It watches at most **256 directory

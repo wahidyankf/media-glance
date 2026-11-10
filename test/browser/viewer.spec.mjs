@@ -360,6 +360,102 @@ test("sidebar toggle hides the explorer, keeps document scroll, and persists acr
   }
 });
 
+test("sidebar resizer drags with the mouse, clamps at both limits, keeps scroll, and survives reloads and collapse", async ({
+  page,
+}) => {
+  const fixture = createFixture(resolve("build/media-glance"));
+  try {
+    const ready = await fixture.ready;
+    const info = await (
+      await page.request.get(new URL("info", ready.fixtureUrl).href)
+    ).json();
+    // Same live-subscription gate as the sidebar toggle journey, so the
+    // open-triggered refresh cannot restore an older document scroll.
+    await page.addInitScript(() => {
+      const Source = globalThis.EventSource;
+      globalThis.EventSource = class extends Source {
+        addEventListener(type, listener, options) {
+          if (type === "open") {
+            globalThis.liveSubscribed = true;
+            return;
+          }
+          super.addEventListener(type, listener, options);
+        }
+      };
+    });
+    await page.goto(info.viewerUrl);
+    await page.waitForFunction(() => globalThis.liveSubscribed);
+    const layout = page.locator(".layout");
+    const handle = page.locator("#sidebar-resizer");
+    const sidebar = page.locator("#sidebar");
+    const width = () =>
+      sidebar.evaluate((node) => node.getBoundingClientRect().width);
+    const handleX = async () => {
+      const box = await handle.boundingBox();
+      return box.x + box.width / 2;
+    };
+    const dragTo = async (targetX) => {
+      const box = await handle.boundingBox();
+      const y = box.y + box.height / 2;
+      await page.mouse.move(box.x + box.width / 2, y);
+      await page.mouse.down();
+      await page.mouse.move(targetX, y, { steps: 5 });
+      await page.mouse.up();
+    };
+    const viewport = await page.evaluate(() => globalThis.innerWidth);
+    const maximum = Math.min(640, Math.floor(viewport * 0.6));
+    const scrollTop = () =>
+      page.evaluate(
+        () => globalThis.document.querySelector("#panel").scrollTop,
+      );
+    await page.evaluate(() => {
+      globalThis.document.querySelector("#panel").scrollTop = 240;
+    });
+    const before = await scrollTop();
+    expect(before).toBeGreaterThan(0);
+    const initial = await width();
+    await expect(handle).toHaveAttribute("aria-valuenow", String(initial));
+
+    await dragTo((await handleX()) + 80);
+    await expect.poll(width).toBeCloseTo(initial + 80, 0);
+    expect(await scrollTop()).toBe(before);
+    expect(
+      await page.evaluate(() =>
+        globalThis.localStorage.getItem("media-glance.sidebar-width"),
+      ),
+    ).toBe(String(initial + 80));
+
+    await dragTo(viewport - 2);
+    await expect.poll(width).toBeCloseTo(maximum, 0);
+    expect(await scrollTop()).toBe(before);
+
+    await dragTo(0);
+    await expect.poll(width).toBeCloseTo(176, 0);
+
+    await dragTo((await handleX()) + 124);
+    await expect.poll(width).toBeCloseTo(300, 0);
+    await page.reload();
+    await expect(layout).toHaveAttribute("data-sidebar", "shown");
+    await expect.poll(width).toBeCloseTo(300, 0);
+
+    await page
+      .getByRole("button", { name: "Hide sidebar", exact: true })
+      .click();
+    await expect(layout).toHaveAttribute("data-sidebar", "collapsed");
+    await expect(handle).toBeHidden();
+    await page
+      .getByRole("button", { name: "Show sidebar", exact: true })
+      .click();
+    await expect(layout).toHaveAttribute("data-sidebar", "shown");
+    await expect(handle).toBeVisible();
+    await expect.poll(width).toBeCloseTo(300, 0);
+  } finally {
+    const stopped = await fixture.stop();
+    expect(stopped.code, stopped.stderr).toBe(0);
+    expect(stopped.cleanup?.cleanup).toBe("complete");
+  }
+});
+
 test("explicit ER fills and label colors remain readable while unstyled rows keep theme stripes", async ({
   page,
 }) => {
