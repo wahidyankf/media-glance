@@ -20,6 +20,7 @@ The sidebar shortcut hides or shows the explorer. It does nothing while the find
 field, or when other modifier keys are held.
 
 Drag the sidebar's right edge with a mouse, pen, or touch to resize it. Double-click the edge to restore the default
-width of 17rem. When the edge has focus, ← and → change the width by 16px, Shift with an arrow changes it by 64px,
-Home sets the minimum, and End sets the maximum. The width stays between 11rem and the smaller of 40rem or 60% of the
-window, and it is remembered for this viewer origin. The edge is out of the tab order while the sidebar is hidden.
+width: 17rem, or 11rem in a window 700px wide or narrower. When the edge has focus, ← and → change the width by
+16px, Shift with an arrow changes it by 64px, Home sets the minimum, and End sets the maximum. The width stays between
+11rem and the smaller of 40rem or 60% of the window, and it is remembered for this viewer origin. The edge is out of
+the tab order while the sidebar is hidden.
