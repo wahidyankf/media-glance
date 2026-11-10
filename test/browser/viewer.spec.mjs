@@ -901,10 +901,17 @@ test("fenced code copy preserves exact text and refreshes after outside saves", 
         .locator("pre code")
         .evaluate((code) => globalThis.getComputedStyle(code).fontFamily),
     ).toContain("Source Code Pro");
+    const lightBlock = await page.locator("pre").elementHandle();
     await page.getByRole("button", { name: "Dark mode", exact: true }).click();
     await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
-    const darkPlacement = await page.locator("pre").evaluate((pre) => {
-      const button = pre.querySelector("button"),
+    // The theme switch sets data-theme at once, then re-renders the document
+    // and replaces every code block. Wait for that replacement, and read the
+    // new block in one page task, so a detached block cannot report empty
+    // computed colors.
+    await page.waitForFunction((block) => !block.isConnected, lightBlock);
+    const darkPlacement = await page.evaluate(() => {
+      const pre = document.querySelector("pre"),
+        button = pre.querySelector("button"),
         control = button.getBoundingClientRect(),
         code = pre.querySelector("code").getBoundingClientRect();
       const style = globalThis.getComputedStyle(button);
