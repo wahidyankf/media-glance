@@ -30,9 +30,13 @@ removed after capture. For an accessible step-by-step equivalent, use the
 ## Screenshots
 
 `dark-mode.png` and `light-mode.png` show the same invented Mermaid flow in their respective themes. `file-finder.png`
-shows a filename search; `code-copy.png` shows highlighted Python and its successful copy status;
-`expanded-diagram.png` shows the diagram's expanded view without the page header. All five were captured from the
-v0.2.0 candidate binary at 1060 × 700 pixels in the same temporary workspace as the GIF.
+shows a filename search; `code-copy.png` shows highlighted Python and its successful copy status. These four were
+recaptured at 1060 × 700 pixels from the current build, after the header gained its **Hide sidebar** button, in an
+invented `media-glance-demo` workspace with the same five files. Their diagram layout differs slightly from the GIF's
+original workspace.
+
+`expanded-diagram.png` omits the page header and remains from the v0.2.0 candidate binary. `demo.gif` also remains from
+that candidate, so it still shows the older header without the sidebar button.
 
 `er-styles.png` is an earlier v0.1.3 candidate screenshot of explicit ER diagram fills and white labels. It remains a
 separate historical example and does not use the v0.2.0 demo workspace.

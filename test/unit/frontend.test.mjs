@@ -6,7 +6,7 @@ import { mediaViewers } from "../../web/media.js";
 
 function fixture(files = {}, tree = []) {
   const dom = new JSDOM(
-    '<header><b id="workspace"></b><span id="status"></span><button id="search-files" type="button">Search files</button><button id="theme-toggle" type="button">Light mode</button></header><dialog id="file-finder" aria-labelledby="file-finder-title"><h2 id="file-finder-title">Search files</h2><label for="file-finder-query">File name or path</label><input id="file-finder-query" type="search" aria-controls="file-finder-results" /><p id="file-finder-status" role="status"></p><div id="file-finder-results" role="listbox" aria-label="Files"></div><button id="file-finder-close" type="button">Close</button></dialog><nav><div id="tree"></div></nav><main id="panel"></main>',
+    '<header><button id="sidebar-toggle" type="button" aria-controls="sidebar" aria-expanded="true">Hide sidebar</button><b id="workspace"></b><span id="status"></span><button id="search-files" type="button">Search files</button><button id="theme-toggle" type="button">Light mode</button></header><dialog id="file-finder" aria-labelledby="file-finder-title"><h2 id="file-finder-title">Search files</h2><label for="file-finder-query">File name or path</label><input id="file-finder-query" type="search" aria-controls="file-finder-results" /><p id="file-finder-status" role="status"></p><div id="file-finder-results" role="listbox" aria-label="Files"></div><button id="file-finder-close" type="button">Close</button></dialog><div class="layout"><nav id="sidebar"><div id="tree"></div></nav><main id="panel"></main></div>',
     { url: "http://127.0.0.1:57300/v/token/?file=doc.md" },
   );
   const w = dom.window;
@@ -1425,4 +1425,211 @@ test("late finder responses cannot update a closed or disposed dialog", async ()
     app.dispose();
     f.dom.window.close();
   }
+});
+
+function sidebarState(w) {
+  return w.document.querySelector(".layout").dataset.sidebar;
+}
+function keyboard(w, init) {
+  return new w.KeyboardEvent("keydown", {
+    key: "b",
+    bubbles: true,
+    cancelable: true,
+    ...init,
+  });
+}
+function setPlatform(w, platform) {
+  Object.defineProperty(w.navigator, "platform", { value: platform });
+}
+const sidebarPlatforms = [
+  { platform: "MacIntel", acting: "metaKey", ignored: "ctrlKey" },
+  { platform: "Win32", acting: "ctrlKey", ignored: "metaKey" },
+];
+
+test("sidebar restores a saved hidden or shown choice and defaults to shown without usable storage", async () => {
+  for (const scenario of [
+    {
+      saved: "hidden",
+      state: "collapsed",
+      label: "Show sidebar",
+      expanded: "false",
+    },
+    { saved: "shown", state: "shown", label: "Hide sidebar", expanded: "true" },
+    { saved: null, state: "shown", label: "Hide sidebar", expanded: "true" },
+    {
+      saved: "collapsed",
+      state: "shown",
+      label: "Hide sidebar",
+      expanded: "true",
+    },
+    { denied: true, state: "shown", label: "Hide sidebar", expanded: "true" },
+  ]) {
+    const f = fixture({ "doc.md": markdown("Sidebar fixture") });
+    if (scenario.saved)
+      f.w.localStorage.setItem("media-glance.sidebar", scenario.saved);
+    if (scenario.denied)
+      Object.defineProperty(f.w, "localStorage", {
+        get() {
+          throw new Error("storage denied");
+        },
+      });
+    const app = await boot(f.w);
+    const button = f.w.document.getElementById("sidebar-toggle");
+    assert.equal(sidebarState(f.w), scenario.state);
+    assert.equal(button.textContent, scenario.label);
+    assert.equal(button.getAttribute("aria-expanded"), scenario.expanded);
+    app.dispose();
+    f.dom.window.close();
+  }
+});
+
+test("the sidebar button toggles, persists the choice across reloads, and keeps working when writes are denied", async () => {
+  for (const scenario of [{ deniedWrite: false }, { deniedWrite: true }]) {
+    const f = fixture({ "doc.md": markdown("Sidebar fixture") });
+    if (scenario.deniedWrite)
+      Object.defineProperty(f.w, "localStorage", {
+        value: {
+          getItem() {
+            return null;
+          },
+          setItem() {
+            throw new Error("storage quota");
+          },
+        },
+      });
+    const app = await boot(f.w);
+    const button = f.w.document.getElementById("sidebar-toggle");
+    button.click();
+    await settle();
+    assert.equal(sidebarState(f.w), "collapsed");
+    assert.equal(button.textContent, "Show sidebar");
+    assert.equal(button.getAttribute("aria-expanded"), "false");
+    if (!scenario.deniedWrite)
+      assert.equal(f.w.localStorage.getItem("media-glance.sidebar"), "hidden");
+    button.click();
+    assert.equal(sidebarState(f.w), "shown");
+    assert.equal(button.textContent, "Hide sidebar");
+    assert.equal(button.getAttribute("aria-expanded"), "true");
+    if (!scenario.deniedWrite)
+      assert.equal(f.w.localStorage.getItem("media-glance.sidebar"), "shown");
+    button.click();
+    app.dispose();
+    const reopened = await boot(f.w);
+    assert.equal(
+      sidebarState(f.w),
+      scenario.deniedWrite ? "shown" : "collapsed",
+      "a saved hidden choice survives a reload",
+    );
+    reopened.dispose();
+    f.dom.window.close();
+  }
+});
+
+test("Cmd+B on macOS and Ctrl+B elsewhere toggle the sidebar and prevent default only when they act", async () => {
+  for (const { platform, acting, ignored } of sidebarPlatforms) {
+    const f = fixture({ "doc.md": markdown("Sidebar fixture") });
+    setPlatform(f.w, platform);
+    const app = await boot(f.w);
+    const wrong = keyboard(f.w, { [ignored]: true });
+    f.w.document.dispatchEvent(wrong);
+    assert.equal(sidebarState(f.w), "shown", `${platform} ignores ${ignored}`);
+    assert.equal(wrong.defaultPrevented, false);
+    const event = keyboard(f.w, { [acting]: true });
+    f.w.document.dispatchEvent(event);
+    assert.equal(
+      sidebarState(f.w),
+      "collapsed",
+      `${platform} acts on ${acting}`,
+    );
+    assert.equal(event.defaultPrevented, true);
+    f.w.document.dispatchEvent(keyboard(f.w, { [acting]: true }));
+    assert.equal(sidebarState(f.w), "shown");
+    app.dispose();
+    f.dom.window.close();
+  }
+});
+
+test("the sidebar shortcut ignores other modifiers and other keys", async () => {
+  for (const { platform, acting } of sidebarPlatforms) {
+    const f = fixture({ "doc.md": markdown("Sidebar fixture") });
+    setPlatform(f.w, platform);
+    const app = await boot(f.w);
+    for (const init of [
+      {},
+      { [acting]: true, altKey: true },
+      { [acting]: true, shiftKey: true },
+      { metaKey: true, ctrlKey: true },
+      { [acting]: true, key: "x" },
+    ]) {
+      const event = keyboard(f.w, init);
+      f.w.document.dispatchEvent(event);
+      assert.equal(sidebarState(f.w), "shown", JSON.stringify(init));
+      assert.equal(event.defaultPrevented, false, JSON.stringify(init));
+    }
+    app.dispose();
+    f.dom.window.close();
+  }
+});
+
+test("the sidebar shortcut yields to an open file finder and to editable text", async () => {
+  const f = fixture({ "doc.md": markdown("Sidebar fixture") });
+  const app = await boot(f.w);
+  f.w.document.dispatchEvent(
+    new f.w.KeyboardEvent("keydown", {
+      key: "k",
+      ctrlKey: true,
+      bubbles: true,
+      cancelable: true,
+    }),
+  );
+  assert.equal(f.w.document.getElementById("file-finder").open, true);
+  const finderEvent = keyboard(f.w, { ctrlKey: true });
+  f.w.document.dispatchEvent(finderEvent);
+  assert.equal(sidebarState(f.w), "shown");
+  assert.equal(finderEvent.defaultPrevented, false);
+  f.w.document.getElementById("file-finder-close").click();
+  const textarea = f.w.document.createElement("textarea");
+  const editable = f.w.document.createElement("div");
+  editable.setAttribute("contenteditable", "true");
+  const locked = f.w.document.createElement("div");
+  locked.setAttribute("contenteditable", "false");
+  f.w.document.body.append(textarea, editable, locked);
+  for (const target of [
+    f.w.document.getElementById("file-finder-query"),
+    textarea,
+    editable,
+  ]) {
+    const event = keyboard(f.w, { ctrlKey: true });
+    target.dispatchEvent(event);
+    assert.equal(sidebarState(f.w), "shown");
+    assert.equal(event.defaultPrevented, false);
+  }
+  const lockedEvent = keyboard(f.w, { ctrlKey: true });
+  locked.dispatchEvent(lockedEvent);
+  assert.equal(sidebarState(f.w), "collapsed", "non-editable content acts");
+  assert.equal(lockedEvent.defaultPrevented, true);
+  app.dispose();
+  f.dom.window.close();
+});
+
+test("disposed sidebar controls cannot toggle, persist, or prevent shortcuts", async () => {
+  const f = fixture({ "doc.md": markdown("Sidebar fixture") });
+  const app = await boot(f.w);
+  app.dispose();
+  f.w.document.getElementById("sidebar-toggle").click();
+  assert.equal(
+    sidebarState(f.w),
+    "shown",
+    "disposed button must stop reacting",
+  );
+  assert.equal(f.w.localStorage.getItem("media-glance.sidebar"), null);
+  const event = keyboard(f.w, { ctrlKey: true });
+  f.w.document.dispatchEvent(event);
+  assert.equal(
+    sidebarState(f.w),
+    "shown",
+    "disposed shortcut must stop reacting",
+  );
+  assert.equal(event.defaultPrevented, false);
+  f.dom.window.close();
 });

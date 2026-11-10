@@ -98,6 +98,9 @@ The browser shows an explorer sidebar and previews Markdown, images, PDFs,
 audio, video, and ordinary text. Markdown renders local images, Mermaid diagrams,
 and supported math. Bundled assets keep these renderers available offline.
 Filesystem updates from editors or agents refresh the browser without reopening.
+Hide sidebar in the header, or Cmd-B on macOS and Ctrl-B on Windows/Linux,
+collapses the explorer. The choice is saved for this browser origin, and the
+document keeps its scroll position.
 
 Press Cmd-K on macOS or Ctrl-K on Windows/Linux to find a saved file by name or
 relative path. Up/Down moves through results, Enter opens, and Escape closes
@@ -114,8 +117,8 @@ modal and returns focus. Live updates preserve navigation and relevant zoom.
 
 The initial light/dark theme follows the system. Light mode / Dark mode changes
 it and saves your choice for this browser origin. Mermaid follows the mode;
-images retain their original colors. Theme selection stays in the page header;
-expanded media has only media controls.
+images retain their original colors. The page header holds the sidebar toggle
+and theme selection; expanded media has only media controls.
 Theme changes preserve your file, scroll, zoom, and expanded view.
 HTTP/HTTPS links use a native new-tab target without sending the viewer referrer.
 Browser preferences can choose a window instead. Email links keep mail behavior.

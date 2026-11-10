@@ -45,6 +45,26 @@ export async function boot(host) {
       control.textContent = theme === "dark" ? "Light mode" : "Dark mode";
   }
   applyTheme();
+  const sidebarToggle = document.querySelector("#sidebar-toggle");
+  const layout = document.querySelector(".layout");
+  const finderDialog = document.querySelector("#file-finder");
+  const apple = /Mac|iPhone|iPad|iPod/.test(host.navigator.platform);
+  const editableTarget =
+    'input, textarea, [contenteditable]:not([contenteditable="false"])';
+  let sidebar = "shown";
+  try {
+    const saved = host.localStorage.getItem("media-glance.sidebar");
+    if (saved === "hidden" || saved === "shown") sidebar = saved;
+  } catch {
+    // Storage can be denied; the explorer stays visible for this tab.
+  }
+  function applySidebar() {
+    const shown = sidebar === "shown";
+    layout.dataset.sidebar = shown ? "shown" : "collapsed";
+    sidebarToggle.setAttribute("aria-expanded", String(shown));
+    sidebarToggle.textContent = shown ? "Hide sidebar" : "Show sidebar";
+  }
+  applySidebar();
   const expanded = new Set([""]);
   let selected = new URL(location.href).searchParams.get("file") ?? "";
   let source;
@@ -481,6 +501,37 @@ export async function boot(host) {
     },
     { signal: lifetime.signal },
   );
+  function toggleSidebar() {
+    sidebar = sidebar === "shown" ? "hidden" : "shown";
+    try {
+      host.localStorage.setItem("media-glance.sidebar", sidebar);
+    } catch {
+      // Keep the explicit choice for this tab when persistence is denied.
+    }
+    applySidebar();
+  }
+  function sidebarShortcut(event) {
+    const modifier = apple ? event.metaKey : event.ctrlKey;
+    const other = apple ? event.ctrlKey : event.metaKey;
+    if (
+      !modifier ||
+      other ||
+      event.altKey ||
+      event.shiftKey ||
+      event.key.toLowerCase() !== "b" ||
+      finderDialog.open ||
+      event.target.closest?.(editableTarget)
+    )
+      return;
+    event.preventDefault();
+    toggleSidebar();
+  }
+  sidebarToggle.addEventListener("click", toggleSidebar, {
+    signal: lifetime.signal,
+  });
+  document.addEventListener("keydown", sidebarShortcut, {
+    signal: lifetime.signal,
+  });
   document.addEventListener(
     "click",
     async (event) => {

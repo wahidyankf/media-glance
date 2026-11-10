@@ -31,8 +31,8 @@ starting a server. Existing roots stay fixed, and changing registry options whil
 commands look in a different registry.
 
 There are no default mappings, port options, or automatic Git-root detection. Server selection uses `vim.ui.select`.
-The browser file-finder shortcut is **⌘K** on macOS and **Ctrl+K** on Windows/Linux; it does not add a Neovim mapping.
-See [viewer shortcuts](shortcuts.md).
+The browser shortcuts are **⌘K** for the file finder and **⌘B** for the sidebar on macOS. On Windows/Linux they are
+**Ctrl+K** and **Ctrl+B**. They do not add a Neovim mapping. See [viewer shortcuts](shortcuts.md).
 
 ## Commands and functions
 
