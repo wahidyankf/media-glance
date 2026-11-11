@@ -1087,17 +1087,31 @@ test("text without highlighted HTML stays escaped plaintext with exact whitespac
   f.dom.window.close();
 });
 
-test("Cmd+K, Ctrl+K, and the visible trigger open the finder and focus its query", async () => {
+test("Ctrl+K and the visible trigger open the finder and focus its query, while Meta+K does nothing", async () => {
+  for (const init of [
+    { metaKey: true },
+    { metaKey: true, ctrlKey: true },
+    { metaKey: true, shiftKey: true },
+  ]) {
+    const f = fixture({ "doc.md": markdown("Finder fixture") });
+    const app = await boot(f.w);
+    const event = new f.w.KeyboardEvent("keydown", {
+      key: "k",
+      bubbles: true,
+      cancelable: true,
+      ...init,
+    });
+    f.w.document.dispatchEvent(event);
+    assert.equal(
+      f.w.document.getElementById("file-finder").open,
+      false,
+      `${JSON.stringify(init)} must not open the finder`,
+    );
+    assert.equal(event.defaultPrevented, false);
+    app.dispose();
+    f.dom.window.close();
+  }
   for (const open of [
-    (document) =>
-      document.dispatchEvent(
-        new document.defaultView.KeyboardEvent("keydown", {
-          key: "k",
-          metaKey: true,
-          bubbles: true,
-          cancelable: true,
-        }),
-      ),
     (document) =>
       document.dispatchEvent(
         new document.defaultView.KeyboardEvent("keydown", {
@@ -1909,5 +1923,370 @@ test("sidebar resizer stops reacting to keys, pointers, double-clicks, and windo
   assert.equal(resizerWidth(w), "");
   assert.equal(handle.getAttribute("aria-valuemax"), "614");
   assert.equal(w.localStorage.getItem(widthKey), null);
+  f.dom.window.close();
+});
+
+const historyPage = (path) => ({
+  path,
+  kind: "markdown",
+  html: `<p>Body of ${path}</p>`,
+  url: `api/raw?path=${path}`,
+});
+function historyFixture(initial = "a.md") {
+  const files = Object.fromEntries(
+    ["a.md", "b.md", "c.md", "d.md"].map((path) => [path, historyPage(path)]),
+  );
+  const f = fixture(files);
+  f.files = files;
+  f.w.history.replaceState(null, "", `?file=${initial}`);
+  return f;
+}
+function openedFile(f) {
+  return f.w.document.querySelector(".file-title").textContent;
+}
+async function pressHistoryKey(f, key, init = {}) {
+  const event = keyboard(f.w, { key, ctrlKey: true, ...init });
+  f.w.document.dispatchEvent(event);
+  await settle();
+  return event;
+}
+function deferredFile() {
+  let release;
+  const response = new Promise((resolve) => {
+    release = resolve;
+  });
+  return { response, release };
+}
+
+test("Ctrl+O and Ctrl+I step through opened files in the order A to B to C", async () => {
+  const f = historyFixture("a.md");
+  const app = await boot(f.w);
+  await app.navigate("b.md");
+  await app.navigate("c.md");
+  assert.equal(openedFile(f), "c.md");
+  const back = await pressHistoryKey(f, "o");
+  assert.equal(openedFile(f), "b.md");
+  assert.equal(f.w.location.search, "?file=b.md");
+  assert.equal(
+    back.defaultPrevented,
+    true,
+    "the browser's Ctrl+O must not fire",
+  );
+  await pressHistoryKey(f, "o");
+  assert.equal(openedFile(f), "a.md");
+  await pressHistoryKey(f, "i");
+  assert.equal(openedFile(f), "b.md");
+  await pressHistoryKey(f, "i");
+  assert.equal(openedFile(f), "c.md");
+  assert.equal(f.w.location.search, "?file=c.md");
+  app.dispose();
+  f.dom.window.close();
+});
+
+test("going back and then opening a new file drops the forward entries", async () => {
+  const f = historyFixture("a.md");
+  const app = await boot(f.w);
+  await app.navigate("b.md");
+  await app.navigate("c.md");
+  await pressHistoryKey(f, "o");
+  await pressHistoryKey(f, "o");
+  assert.equal(openedFile(f), "a.md");
+  await app.navigate("d.md");
+  await pressHistoryKey(f, "i");
+  assert.equal(openedFile(f), "d.md", "B and C are gone");
+  await pressHistoryKey(f, "o");
+  assert.equal(openedFile(f), "a.md");
+  await pressHistoryKey(f, "i");
+  assert.equal(openedFile(f), "d.md");
+  app.dispose();
+  f.dom.window.close();
+});
+
+test("Ctrl+O and Ctrl+I at the ends of the history stay put and are still consumed", async () => {
+  const f = historyFixture("a.md");
+  const app = await boot(f.w);
+  const back = await pressHistoryKey(f, "o");
+  assert.equal(openedFile(f), "a.md");
+  assert.equal(back.defaultPrevented, true);
+  const requests = f.requests.length;
+  await pressHistoryKey(f, "o");
+  assert.equal(openedFile(f), "a.md");
+  assert.equal(
+    f.requests.length,
+    requests,
+    "no file is requested at the start",
+  );
+  await app.navigate("c.md");
+  await pressHistoryKey(f, "i");
+  await pressHistoryKey(f, "i");
+  assert.equal(openedFile(f), "c.md");
+  app.dispose();
+  f.dom.window.close();
+});
+
+test("re-opening the current file adds no entry", async () => {
+  const f = historyFixture("a.md");
+  const app = await boot(f.w);
+  await app.navigate("a.md");
+  await app.navigate("b.md");
+  await pressHistoryKey(f, "o");
+  assert.equal(openedFile(f), "a.md");
+  await pressHistoryKey(f, "o");
+  assert.equal(openedFile(f), "a.md");
+  await pressHistoryKey(f, "i");
+  assert.equal(openedFile(f), "b.md");
+  app.dispose();
+  f.dom.window.close();
+});
+
+test("a file that can no longer be opened is dropped and the next entry in the same direction is used", async () => {
+  const f = historyFixture("a.md");
+  const app = await boot(f.w);
+  await app.navigate("b.md");
+  await app.navigate("c.md");
+  f.files["b.md"] = new Error("file vanished");
+  await pressHistoryKey(f, "o");
+  assert.equal(openedFile(f), "a.md", "the missing B is skipped");
+  assert.ok(f.requests.includes("api/file?path=b.md"));
+  await pressHistoryKey(f, "i");
+  assert.equal(openedFile(f), "c.md", "B was dropped from forward history");
+  app.dispose();
+  f.dom.window.close();
+});
+
+test("a missing forward entry is skipped going forward, and the position stays when nothing opens", async () => {
+  const f = historyFixture("a.md");
+  const app = await boot(f.w);
+  await app.navigate("b.md");
+  await app.navigate("c.md");
+  await pressHistoryKey(f, "o");
+  await pressHistoryKey(f, "o");
+  assert.equal(openedFile(f), "a.md");
+  f.files["b.md"] = new Error("file vanished");
+  await pressHistoryKey(f, "i");
+  assert.equal(openedFile(f), "c.md", "the missing B is skipped going forward");
+  await pressHistoryKey(f, "o");
+  assert.equal(openedFile(f), "a.md");
+  await pressHistoryKey(f, "o");
+  assert.equal(openedFile(f), "a.md", "nothing older remains");
+  app.dispose();
+  f.dom.window.close();
+});
+
+test("when every earlier entry is missing, Ctrl+O stays on the current file", async () => {
+  const f = historyFixture("a.md");
+  const app = await boot(f.w);
+  await app.navigate("b.md");
+  f.files["a.md"] = new Error("file vanished");
+  const probesBefore = f.requests.filter((r) => r === "api/file?path=a.md");
+  await pressHistoryKey(f, "o");
+  assert.equal(openedFile(f), "b.md");
+  assert.equal(f.w.location.search, "?file=b.md");
+  assert.equal(
+    f.requests.filter((r) => r === "api/file?path=a.md").length,
+    probesBefore.length + 1,
+    "the missing entry is probed once",
+  );
+  await pressHistoryKey(f, "i");
+  assert.equal(openedFile(f), "b.md");
+  app.dispose();
+  f.dom.window.close();
+});
+
+test("Ctrl+O and Ctrl+I are ignored while the finder dialog is open", async () => {
+  const f = historyFixture("a.md");
+  const app = await boot(f.w);
+  await app.navigate("b.md");
+  f.w.document.dispatchEvent(
+    new f.w.KeyboardEvent("keydown", {
+      key: "k",
+      ctrlKey: true,
+      bubbles: true,
+      cancelable: true,
+    }),
+  );
+  assert.equal(f.w.document.getElementById("file-finder").open, true);
+  const event = await pressHistoryKey(f, "o");
+  assert.equal(openedFile(f), "b.md");
+  assert.equal(event.defaultPrevented, false);
+  f.w.document.getElementById("file-finder-close").click();
+  await pressHistoryKey(f, "o");
+  assert.equal(openedFile(f), "a.md");
+  app.dispose();
+  f.dom.window.close();
+});
+
+test("Ctrl+O and Ctrl+I are ignored in editable text and act on non-editable content", async () => {
+  const f = historyFixture("a.md");
+  const app = await boot(f.w);
+  await app.navigate("b.md");
+  const textarea = f.w.document.createElement("textarea");
+  const editable = f.w.document.createElement("div");
+  editable.setAttribute("contenteditable", "true");
+  const locked = f.w.document.createElement("div");
+  locked.setAttribute("contenteditable", "false");
+  f.w.document.body.append(textarea, editable, locked);
+  for (const target of [
+    f.w.document.getElementById("file-finder-query"),
+    textarea,
+    editable,
+  ]) {
+    const event = keyboard(f.w, { key: "o", ctrlKey: true });
+    target.dispatchEvent(event);
+    await settle();
+    assert.equal(openedFile(f), "b.md");
+    assert.equal(event.defaultPrevented, false);
+  }
+  const lockedEvent = keyboard(f.w, { key: "o", ctrlKey: true });
+  locked.dispatchEvent(lockedEvent);
+  await settle();
+  assert.equal(openedFile(f), "a.md", "non-editable content acts");
+  assert.equal(lockedEvent.defaultPrevented, true);
+  app.dispose();
+  f.dom.window.close();
+});
+
+test("Meta, Alt, Shift and Ctrl+Shift combinations are ignored, and Ctrl+O works the same on macOS and elsewhere", async () => {
+  for (const platform of ["MacIntel", "Win32"]) {
+    const f = historyFixture("a.md");
+    setPlatform(f.w, platform);
+    const app = await boot(f.w);
+    await app.navigate("b.md");
+    for (const init of [
+      { key: "o", metaKey: true },
+      { key: "o", altKey: true, ctrlKey: true },
+      { key: "o", shiftKey: true, ctrlKey: true },
+      { key: "o", ctrlKey: true, metaKey: true },
+      { key: "o" },
+      { key: "x", ctrlKey: true },
+    ]) {
+      const event = keyboard(f.w, init);
+      f.w.document.dispatchEvent(event);
+      await settle();
+      assert.equal(
+        openedFile(f),
+        "b.md",
+        `${platform} ${JSON.stringify(init)}`,
+      );
+      assert.equal(event.defaultPrevented, false, JSON.stringify(init));
+    }
+    await pressHistoryKey(f, "O");
+    assert.equal(openedFile(f), "a.md", `${platform} Caps Lock Ctrl+O acts`);
+    app.dispose();
+    f.dom.window.close();
+  }
+});
+
+test("popstate to the previous or next entry moves the position without recording a visit", async () => {
+  const f = historyFixture("a.md");
+  const app = await boot(f.w);
+  await app.navigate("b.md");
+  await app.navigate("c.md");
+  await pressHistoryKey(f, "o");
+  await pressHistoryKey(f, "o");
+  assert.equal(openedFile(f), "a.md");
+  f.w.history.replaceState(null, "", "?file=b.md");
+  f.w.dispatchEvent(new f.w.PopStateEvent("popstate"));
+  await settle();
+  assert.equal(openedFile(f), "b.md");
+  await pressHistoryKey(f, "i");
+  assert.equal(openedFile(f), "c.md", "the forward entry survived popstate");
+  f.w.history.replaceState(null, "", "?file=b.md");
+  f.w.dispatchEvent(new f.w.PopStateEvent("popstate"));
+  await settle();
+  assert.equal(openedFile(f), "b.md");
+  await pressHistoryKey(f, "o");
+  assert.equal(openedFile(f), "a.md");
+  await pressHistoryKey(f, "i");
+  await pressHistoryKey(f, "i");
+  assert.equal(openedFile(f), "c.md");
+  app.dispose();
+  f.dom.window.close();
+});
+
+test("popstate to an unrelated file records a normal visit and drops the forward entries", async () => {
+  const f = historyFixture("a.md");
+  const app = await boot(f.w);
+  await app.navigate("b.md");
+  await app.navigate("c.md");
+  await pressHistoryKey(f, "o");
+  f.w.history.replaceState(null, "", "?file=d.md");
+  f.w.dispatchEvent(new f.w.PopStateEvent("popstate"));
+  await settle();
+  assert.equal(openedFile(f), "d.md");
+  await pressHistoryKey(f, "i");
+  assert.equal(openedFile(f), "d.md");
+  await pressHistoryKey(f, "o");
+  assert.equal(openedFile(f), "b.md");
+  await pressHistoryKey(f, "o");
+  assert.equal(openedFile(f), "a.md");
+  app.dispose();
+  f.dom.window.close();
+});
+
+test("anchor-only navigation in the same file records nothing", async () => {
+  const f = historyFixture("a.md");
+  const app = await boot(f.w);
+  await app.navigate("b.md");
+  await app.navigate("b.md", "section");
+  await pressHistoryKey(f, "o");
+  assert.equal(openedFile(f), "a.md", "the anchor did not add a B entry");
+  f.w.history.replaceState(null, "", "?file=a.md#other");
+  f.w.dispatchEvent(new f.w.PopStateEvent("popstate"));
+  await settle();
+  await pressHistoryKey(f, "i");
+  assert.equal(openedFile(f), "b.md");
+  app.dispose();
+  f.dom.window.close();
+});
+
+test("dispose removes the history shortcut", async () => {
+  const f = historyFixture("a.md");
+  const app = await boot(f.w);
+  await app.navigate("b.md");
+  app.dispose();
+  const requests = f.requests.length;
+  const event = keyboard(f.w, { key: "o", ctrlKey: true });
+  f.w.document.dispatchEvent(event);
+  await settle();
+  assert.equal(f.w.location.search, "?file=b.md");
+  assert.equal(f.requests.length, requests);
+  assert.equal(event.defaultPrevented, false);
+  f.dom.window.close();
+});
+
+test("a history step cannot move the viewer once the controller is disposed", async () => {
+  for (const succeeds of [true, false]) {
+    const f = historyFixture("a.md");
+    const app = await boot(f.w);
+    await app.navigate("b.md");
+    const pending = deferredFile();
+    f.files["a.md"] = () => pending.response;
+    await pressHistoryKey(f, "o");
+    app.dispose();
+    pending.release(
+      succeeds
+        ? { ok: true, json: async () => historyPage("a.md") }
+        : { ok: false, text: async () => "gone" },
+    );
+    await settle();
+    assert.equal(f.w.location.search, "?file=b.md");
+    f.dom.window.close();
+  }
+});
+
+test("a history step re-reads the history when it resolves, after another visit", async () => {
+  const f = historyFixture("a.md");
+  const app = await boot(f.w);
+  await app.navigate("b.md");
+  await app.navigate("c.md");
+  const pending = deferredFile();
+  f.files["b.md"] = () => pending.response;
+  await pressHistoryKey(f, "o");
+  await app.navigate("d.md");
+  pending.release({ ok: true, json: async () => historyPage("b.md") });
+  await settle();
+  assert.equal(openedFile(f), "c.md");
+  app.dispose();
   f.dom.window.close();
 });

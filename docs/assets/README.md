@@ -12,6 +12,7 @@ composited.
 1. The `docs/design.md` file opens in the dark theme with a Mermaid flowchart and the **Hide sidebar** header button.
 2. **Hide sidebar** collapses the explorer, and the button becomes **Show sidebar**; clicking it restores the explorer.
 3. The browser file finder opens with **⌘K** on macOS; a search for `hello.py` finds `examples/hello.py` and opens it.
+   Later versions open the finder with **Ctrl+K** only, so the header button label in the recording is out of date.
 4. The Python source is syntax-highlighted. **Copy** copies its source and displays **Copied**.
 5. The finder returns to `docs/design.md`; **Expand** opens the diagram, and Escape closes it.
 6. The visible **Light mode** control changes the page and diagram to the light theme.

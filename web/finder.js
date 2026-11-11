@@ -176,7 +176,8 @@ export function createFileFinder({
   function keydown(event) {
     if (
       event.key.toLowerCase() === "k" &&
-      (event.metaKey || event.ctrlKey) &&
+      event.ctrlKey &&
+      !event.metaKey &&
       !event.altKey &&
       !event.shiftKey
     ) {

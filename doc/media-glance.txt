@@ -103,9 +103,15 @@ collapses the explorer. The choice is saved for this browser origin, and the
 document keeps its scroll position. Drag the explorer's right edge to resize it;
 double-click the edge to restore the default width. The width is saved too.
 
-Press Cmd-K on macOS or Ctrl-K on Windows/Linux to find a saved file by name or
-relative path. Up/Down moves through results, Enter opens, and Escape closes
-the finder. When no result is selected, Enter opens the first match.
+Press Ctrl-K on any platform to find a saved file by name or relative path.
+Up/Down moves through results, Enter opens, and Escape closes the finder. When
+no result is selected, Enter opens the first match. Cmd-K does nothing.
+
+Ctrl-O goes back and Ctrl-I goes forward through the files opened in this tab,
+like Vim's jumplist but for files rather than cursor positions. Opening a new
+file after going back drops the forward entries. The history is kept in memory
+for the tab and is lost on reload. The keys do nothing in the finder or in text
+fields.
 
 Recognized source files and labeled Markdown code fences receive syntax
 highlighting. Copy preserves exact source text. Unknown languages and files

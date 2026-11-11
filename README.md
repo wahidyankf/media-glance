@@ -21,9 +21,10 @@ light mode. All sample content is invented. See the [recording details](docs/ass
 - 📄 **Read rich documents.** Render Markdown tables, task lists, local images, links, and Mermaid diagrams.
 - 🎨 **Read code comfortably.** Recognized source files and fenced code use syntax highlighting, with plain-text
   fallback for unknown or oversized files.
-- 🔍 **Find files quickly.** Press **⌘K** on macOS or **Ctrl+K** on Windows/Linux to search filenames and paths,
-  including files in collapsed folders.
+- 🔍 **Find files quickly.** Press **Ctrl+K** on any platform to search filenames and paths, including files in
+  collapsed folders.
 - 🧭 **Hide the explorer for more room.** Use the header button, or **⌘B** on macOS and **Ctrl+B** on Windows/Linux.
+- 🕘 **Go back through opened files.** Ctrl+O and Ctrl+I step back and forward through the files you opened in this tab.
 - 🔎 **Enlarge the media, keep the text size.** Zoom each image or diagram, fit it, or open an expanded view.
 - 🔄 **See changes from outside Neovim.** Saved and atomic file replacements refresh the preview.
 - 🧩 **Keep sessions independent.** Each Neovim session owns its server; exiting the editor stops it. Pick a running
@@ -125,10 +126,10 @@ whether that target becomes a tab or window. A bundled eye icon identifies the v
 
 Fenced code blocks and recognized source files have syntax highlighting and a **Copy** button. Copy preserves the
 exact source, including tabs and newlines, and reports success or failure beside the button. Unknown languages and
-oversized files remain plain text. The browser file finder opens with **⌘K** on macOS or **Ctrl+K** on
-Windows/Linux; it searches names and relative paths in collapsed folders too. These browser shortcuts do not add
-Neovim mappings. The page header holds the sidebar toggle and theme selection; expanded media has only its media
-controls.
+oversized files remain plain text. The browser file finder opens with **Ctrl+K** on every platform; it searches
+names and relative paths in collapsed folders too. Ctrl+O and Ctrl+I step through the files opened in this tab. These
+browser shortcuts do not add Neovim mappings. The page header holds the sidebar toggle and theme selection;
+expanded media has only its media controls.
 
 Mermaid labels use semibold text and follow the selected light or dark theme. Explicit colors and font weights in a
 diagram remain in effect.
