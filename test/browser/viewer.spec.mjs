@@ -773,9 +773,11 @@ test("file finder searches closed folders, supports repeat searches, and stacks 
       name: "Search files",
       exact: true,
     });
-    await page.keyboard.press("Meta+k");
     const dialog = page.getByRole("dialog", { name: "Search files" });
     const query = page.getByRole("searchbox", { name: "File name or path" });
+    await page.keyboard.press("Meta+k");
+    await expect(dialog).toBeHidden();
+    await page.keyboard.press("Control+k");
     await expect(dialog).toBeVisible();
     await expect(query).toBeFocused();
     await page.keyboard.press("Escape");
@@ -1362,6 +1364,72 @@ test("downloaded images are not ready until their fit callbacks have applied", a
         .first()
         .evaluate((image) => image.getBoundingClientRect().width),
     ).toBe(before);
+  } finally {
+    const stopped = await fixture.stop();
+    expect(stopped.code, stopped.stderr).toBe(0);
+    expect(stopped.cleanup?.cleanup).toBe("complete");
+  }
+});
+
+test("Ctrl+O and Ctrl+I step through opened files, drop forward entries after a new visit, and yield to the finder", async ({
+  page,
+}) => {
+  const fixture = createFixture(resolve("build/media-glance"));
+  try {
+    const ready = await fixture.ready;
+    const info = await (
+      await page.request.get(new URL("info", ready.fixtureUrl).href)
+    ).json();
+    const address = new URL(info.viewerUrl);
+    address.searchParams.set("file", "zz-selected/nested/current.md");
+    await page.goto(address.href);
+    const title = page.locator(".file-title");
+    const openFromFinder = async (name) => {
+      await page
+        .getByRole("button", { name: "Search files", exact: true })
+        .click();
+      await page
+        .getByRole("searchbox", { name: "File name or path" })
+        .fill(`zz-selected/nested/${name}`);
+      await page
+        .getByRole("option")
+        .filter({ hasText: `zz-selected/nested/${name}` })
+        .click();
+      await expect(title).toHaveText(`zz-selected/nested/${name}`);
+    };
+    const press = (key) => page.keyboard.press(`Control+${key}`);
+
+    await openFromFinder("hello.go");
+    await openFromFinder("second.md");
+    await press("o");
+    await expect(title).toHaveText("zz-selected/nested/hello.go");
+    await press("o");
+    await expect(title).toHaveText("zz-selected/nested/current.md");
+    await press("i");
+    await expect(title).toHaveText("zz-selected/nested/hello.go");
+    await press("i");
+    await expect(title).toHaveText("zz-selected/nested/second.md");
+
+    await press("o");
+    await expect(title).toHaveText("zz-selected/nested/hello.go");
+    await openFromFinder("copy.md");
+    await press("i");
+    await expect(title).toHaveText("zz-selected/nested/copy.md");
+    await press("o");
+    await expect(title).toHaveText("zz-selected/nested/hello.go");
+    await press("o");
+    await expect(title).toHaveText("zz-selected/nested/current.md");
+
+    const dialog = page.getByRole("dialog", { name: "Search files" });
+    await page.keyboard.press("Control+k");
+    await expect(dialog).toBeVisible();
+    await press("o");
+    await expect(dialog).toBeVisible();
+    await expect(title).toHaveText("zz-selected/nested/current.md");
+    await page.keyboard.press("Escape");
+    await expect(dialog).toBeHidden();
+    await press("i");
+    await expect(title).toHaveText("zz-selected/nested/hello.go");
   } finally {
     const stopped = await fixture.stop();
     expect(stopped.code, stopped.stderr).toBe(0);

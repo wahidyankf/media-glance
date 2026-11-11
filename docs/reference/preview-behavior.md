@@ -88,12 +88,20 @@ controls with the current saved code; a pending result from an obsolete preview 
 
 ## Find files
 
-Press **⌘K** on macOS or **Ctrl+K** on Windows/Linux to open the file finder. Type a filename or relative path;
+Press **Ctrl+K** on any platform to open the file finder; Cmd+K does nothing. Type a filename or relative path;
 results rank exact and partial basename matches before path matches. Use Up/Down to select a result, Enter to open
 it, and Escape to close the dialog and return focus. Search scans at most 50,000 entries, 64 directory levels, or
 two seconds, and shows up to 50 results. A partial-result message means the scan reached one of those limits or
 found more matches than it can show.
 Search skips `.git`, `node_modules`, `.cache`, and `worktrees`, like the explorer.
+
+## File history
+
+**Ctrl+O** goes back and **Ctrl+I** goes forward through the files opened in this tab, like Vim's jumplist but for files
+rather than cursor positions. Browser Back and Forward move through the same entries without adding new ones. Opening a
+new file after going back drops the forward entries. A file that no longer opens is skipped and removed from the
+history. The history is kept in memory for the tab and is lost on reload. The keys do nothing in the finder, in text
+fields, or while a focused PDF pane holds the keyboard.
 
 ## Explorer and live updates
 

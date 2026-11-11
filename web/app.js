@@ -1,3 +1,4 @@
+import { createFileHistory } from "./file-history.js";
 import { createFileFinder } from "./finder.js";
 import { mediaViewers } from "./media.js";
 import {
@@ -120,6 +121,8 @@ export async function boot(host) {
   applySidebarWidth();
   const expanded = new Set([""]);
   let selected = new URL(location.href).searchParams.get("file") ?? "";
+  // Per-tab, in memory only: Ctrl+O and Ctrl+I walk the files opened here.
+  const fileHistory = createFileHistory(selected);
   let source;
   let subscription = "";
   let generation = 0;
@@ -458,9 +461,10 @@ export async function boot(host) {
     }
   }
 
-  async function navigate(path, anchor = "", push = true) {
+  async function navigate(path, anchor = "", push = true, record = true) {
     if (disposed) return;
     selected = path;
+    if (record) fileHistory.visit(path);
     if (push) {
       const address = new URL(location.href);
       address.searchParams.set("file", selected);
@@ -469,6 +473,40 @@ export async function boot(host) {
     }
     await Promise.all([display(false, anchor), refreshTree(true)]);
     subscribe();
+  }
+
+  // Moves to the neighbouring history entry, skipping files that cannot be
+  // opened. A probe that fails drops its entry and the next one is tried.
+  async function stepHistory(step) {
+    for (;;) {
+      const target = fileHistory.peek(step);
+      if (target === null) return;
+      let opened = true;
+      try {
+        await api(`file?path=${encodeURIComponent(target)}`);
+      } catch {
+        opened = false;
+      }
+      if (disposed) return;
+      // Another visit may have changed the history while the probe ran.
+      if (fileHistory.peek(step) !== target) continue;
+      if (!opened) {
+        fileHistory.drop(target);
+        continue;
+      }
+      fileHistory.move(step);
+      await navigate(target, "", true, false);
+      return;
+    }
+  }
+
+  // Browser Back and Forward move through the entries already recorded, so
+  // they move the position instead of recording a visit.
+  function syncHistoryPosition(path) {
+    if (path === fileHistory.current) return;
+    if (fileHistory.peek(-1) === path) fileHistory.move(-1);
+    else if (fileHistory.peek(1) === path) fileHistory.move(1);
+    else fileHistory.visit(path);
   }
 
   const finder = createFileFinder({
@@ -583,6 +621,24 @@ export async function boot(host) {
     signal: lifetime.signal,
   });
   document.addEventListener("keydown", sidebarShortcut, {
+    signal: lifetime.signal,
+  });
+  function historyShortcut(event) {
+    const key = event.key.toLowerCase();
+    if (
+      !event.ctrlKey ||
+      event.metaKey ||
+      event.altKey ||
+      event.shiftKey ||
+      (key !== "o" && key !== "i") ||
+      finderDialog.open ||
+      event.target.closest?.(editableTarget)
+    )
+      return;
+    event.preventDefault();
+    void stepHistory(key === "o" ? -1 : 1);
+  }
+  document.addEventListener("keydown", historyShortcut, {
     signal: lifetime.signal,
   });
   let drag = null;
@@ -711,12 +767,16 @@ export async function boot(host) {
   );
   window.addEventListener(
     "popstate",
-    () =>
-      navigate(
-        new URL(location.href).searchParams.get("file") ?? "",
+    () => {
+      const path = new URL(location.href).searchParams.get("file") ?? "";
+      syncHistoryPosition(path);
+      return navigate(
+        path,
         decodeURIComponent(location.hash.slice(1)),
         false,
-      ),
+        false,
+      );
+    },
     { signal: lifetime.signal },
   );
   function dispose() {

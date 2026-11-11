@@ -6,7 +6,8 @@ preference. `media.js` owns independent image and Mermaid zoom, pan, and expande
 The header owns the sidebar toggle and theme selection. The sidebar state is saved as `media-glance.sidebar`; Cmd+B on
 macOS and Ctrl+B elsewhere toggles it. `sidebar-width.js` holds the pure width limits, saved-value parsing, and key
 steps, while `app.js` owns the drag handle and saves the width as `media-glance.sidebar-width`. Expanded media has only
-media controls. Code copy actions use one delegated
+media controls. `file-history.js` holds the pure opened-file history behind Ctrl+O and Ctrl+I, and `app.js` probes
+each file before it moves. Code copy actions use one delegated
 document listener and ignore results from replaced previews. Bundled fonts in `fonts/` load before diagram geometry.
 `favicon.svg` is a self-contained eye icon served through the authenticated asset route.
 `style.css` keeps the document column at 123ch and supplies responsive media controls.

@@ -79,7 +79,7 @@ func (v *viewer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		v.syntaxCSS(w, r)
 	case "", "index.html":
 		serveEmbedded(w, r, "web/index.html")
-	case "app.js", "finder.js", "media.js", "sidebar-width.js", "start.js", "style.css", "favicon.svg",
+	case "app.js", "file-history.js", "finder.js", "media.js", "sidebar-width.js", "start.js", "style.css", "favicon.svg",
 		"fonts/SourceSerif4-Regular.ttf.woff2", "fonts/SourceSerif4-Bold.ttf.woff2",
 		"fonts/SourceSerif4-It.ttf.woff2", "fonts/SourceSerif4-BoldIt.ttf.woff2",
 		"fonts/SourceSans3VF-Upright.otf.woff2", "fonts/SourceCodePro-Regular.ttf.woff2",

@@ -31,10 +31,11 @@ starting a server. Existing roots stay fixed, and changing registry options whil
 commands look in a different registry.
 
 There are no default mappings, port options, or automatic Git-root detection. Server selection uses `vim.ui.select`.
-The browser shortcuts are **⌘K** for the file finder and **⌘B** for the sidebar on macOS. On Windows/Linux they are
-**Ctrl+K** and **Ctrl+B**. They do not add a Neovim mapping. See [viewer shortcuts](shortcuts.md). The browser
-stores the sidebar visibility as `media-glance.sidebar` and a dragged sidebar width in CSS pixels as
-`media-glance.sidebar-width`, both per viewer origin.
+The browser shortcuts are **Ctrl+K** for the file finder on every platform, and **⌘B** for the sidebar on macOS. On
+Windows/Linux the sidebar is **Ctrl+B**. Ctrl+O and Ctrl+I step through opened files. They do not add a Neovim mapping.
+See [viewer shortcuts](shortcuts.md). The browser stores the sidebar visibility as `media-glance.sidebar` and a dragged
+sidebar width in CSS pixels as `media-glance.sidebar-width`, both per viewer origin. The file history adds no storage
+key: it lives in memory for each viewer tab, and a reload starts a new one.
 
 ## Commands and functions
 
